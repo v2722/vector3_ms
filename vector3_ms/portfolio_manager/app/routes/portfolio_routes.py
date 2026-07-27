@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from vector3_ms.portfolio_manager.app.services.portfolio_service import (
+from app.services.portfolio_service import (
     create_portfolio,
     list_portfolios
 )

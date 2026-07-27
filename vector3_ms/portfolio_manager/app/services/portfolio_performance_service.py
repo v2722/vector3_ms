@@ -1,4 +1,4 @@
-from vector3_ms.portfolio_manager.app.database.connection import get_db
+from app.database.connection import get_db
 
 def record_portfolio_performance(portfolio_id, date, total_value, daily_change, daily_change_percent, notes=None):
     db = get_db()

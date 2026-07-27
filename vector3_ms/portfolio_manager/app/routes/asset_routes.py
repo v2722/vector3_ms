@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from vector3_ms.portfolio_manager.app.services.asset_service import (
+from app.services.asset_service import (
     upsert_asset,
     list_assets,
     get_asset

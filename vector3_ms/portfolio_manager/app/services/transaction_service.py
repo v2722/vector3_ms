@@ -1,4 +1,4 @@
-from vector3_ms.portfolio_manager.app.database.connection import get_db
+from app.database.connection import get_db
 
 def list_transactions(portfolio_id: int):
     db = get_db()
