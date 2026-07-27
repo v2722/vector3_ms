@@ -1,4 +1,6 @@
-from vector3_ms.portfolio_manager.app.database.connection import get_db
+from app.database.connection import get_db
+from app.services.data_provider import fetch_asset_info
+
 
 def list_assets():
     db = get_db()
@@ -9,6 +11,7 @@ def list_assets():
     db.close()
     return result
 
+
 def get_asset(ticker: str):
     db = get_db()
     cursor = db.cursor(dictionary=True)
@@ -18,9 +21,21 @@ def get_asset(ticker: str):
     db.close()
     return result
 
+
 def upsert_asset(ticker: str, data=None):
     db = get_db()
     cursor = db.cursor(dictionary=True)
+
+    if not data:
+        info = fetch_asset_info(ticker)
+        if info:
+            data = {
+                "name": info["name"],
+                "exchange": info.get("exchange"),
+                "sector": info.get("sector"),
+                "industry": info.get("industry"),
+                "asset_type_id": None,
+            }
 
     if data:
         sql = """
@@ -35,11 +50,11 @@ def upsert_asset(ticker: str, data=None):
         """
         cursor.execute(sql, (
             ticker,
-            data["name"],
+            data.get("name", ""),
             data.get("exchange"),
             data.get("sector"),
             data.get("industry"),
-            data.get("asset_type_id")
+            data.get("asset_type_id"),
         ))
     else:
         cursor.execute("INSERT IGNORE INTO asset (ticker) VALUES (%s)", (ticker,))

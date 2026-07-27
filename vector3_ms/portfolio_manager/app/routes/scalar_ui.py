@@ -11,17 +11,17 @@ def scalar_ui():
     <head>
         <title>Scalar API Console</title>
         <meta charset="UTF-8" />
-        <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@scalar/themes@latest/style.css" />
+        <style>
+            body {
+                margin: 0;
+                padding: 0;
+            }
+        </style>
     </head>
-    <body style="margin:0;padding:0;">
-        <api-reference 
-            data-url="/openapi.json"
-            theme="dark"
-            layout="modern"
-            hide-sidebar="false"
-            hide-schema="false"
-            hide-header="false">
-        </api-reference>
+    <body>
+        <script id="api-reference" data-url="/openapi.json" src="https://cdn.jsdelivr.net/npm/@scalar/api-reference@latest"></script>
     </body>
     </html>
     """

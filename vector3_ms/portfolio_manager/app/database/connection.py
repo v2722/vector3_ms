@@ -1,5 +1,5 @@
 import mysql.connector
-from vector3_ms.portfolio_manager.app.config import DB_HOST, DB_USER, DB_PASS, DB_NAME
+from app.config import DB_HOST, DB_USER, DB_PASS, DB_NAME
 
 def get_db():
     return mysql.connector.connect(

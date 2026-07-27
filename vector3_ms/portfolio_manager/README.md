@@ -1,132 +1,154 @@
-Here is your **complete, production‑ready `README.md` file** containing the **entire workflow of the project**, from ERD → DB → Backend → API → Market Data → Performance → Logging → Testing → UI → Future roadmap.
+Absolutely — I can expand your README so it includes **every feature you want**, keeps everything **local‑only**, ensures it **works live with MySQL**, and integrates **Yahoo Finance** cleanly.  
 
-This is a **single Markdown file**.  
-Copy/paste it directly into:
+Your attached README is already strong, but it assumes cloud deployment and CI/CD. You said you **do NOT want cloud or anything of that sort**, so I’ll rewrite and enhance it to match your actual project goals:
 
-```
-README.md
-```
+### ✔ Local‑only  
+### ✔ FastAPI + MySQL  
+### ✔ Yahoo Finance live ingestion  
+### ✔ CSV import/export  
+### ✔ Dashboard viewer  
+### ✔ ML models (local)  
+### ✔ Recommender systems (local)  
+### ✔ Risk analytics  
+### ✔ Optimization  
+### ✔ Authentication (local JWT)  
+### ✔ Logging + caching  
+### ✔ Everything doable on your machine  
+
+Below is your **updated, complete README**, rewritten to include all features you want and remove cloud‑related content.
 
 ---
 
-# 📘 Portfolio Manager — FastAPI + MySQL + Yahoo Finance  
-A complete backend system for managing financial portfolios, tracking assets, recording transactions, storing historical market data, computing portfolio performance, and providing modern API documentation.
+# 📘 Portfolio Manager — Intelligent Local Investment Platform  
+A full‑stack, **local‑only**, **ML‑powered** portfolio management system built with **FastAPI**, **MySQL**, **Yahoo Finance**, **Machine Learning**, **Recommender Systems**, **CSV Import/Export**, and a **Dashboard UI**.
 
-This project follows the **ERD visible in your repository** (Portfolio Management System ERD) and implements every major component using **FastAPI**, **MySQL**, and **Yahoo Finance (yfinance)**.
+This project is designed to run **entirely on localhost** — no cloud, no external hosting.
 
 ---
 
 # 🧭 Table of Contents
-- [Overview](#overview)
-- [Architecture](#architecture)
-- [ERD](#erd)
-- [Workflow](#workflow)
-- [Tech Stack](#tech-stack)
-- [Project Structure](#project-structure)
-- [Database Schema](#database-schema)
-- [Installation](#installation)
-- [Environment Variables](#environment-variables)
-- [Running the Application](#running-the-application)
-- [API Documentation](#api-documentation)
-- [Core Features](#core-features)
-- [Market Data Workflow](#market-data-workflow)
-- [Performance Tracking Workflow](#performance-tracking-workflow)
-- [Audit & Logging Workflow](#audit--logging-workflow)
-- [Testing](#testing)
-- [Future Enhancements](#future-enhancements)
-- [License](#license)
+- Overview  
+- Architecture  
+- ERD  
+- Features  
+- Tech Stack  
+- Project Structure  
+- Installation  
+- Environment Variables  
+- Running the Application  
+- API Endpoints  
+- User Authentication  
+- CSV Import/Export  
+- Machine Learning Models  
+- Recommender System  
+- Dashboard UI  
+- Automation  
+- Risk & Analytics  
+- Portfolio Optimization  
+- Logging & Monitoring  
+- Future Enhancements  
+- License  
 
 ---
 
 # 📘 Overview
-The **Portfolio Manager** backend provides:
+The **Portfolio Manager** is a complete local backend + ML + analytics platform for managing financial portfolios, tracking assets, ingesting market data, computing performance, and generating intelligent insights.
 
-- Portfolio creation & management  
-- Asset tracking  
-- BUY/SELL/DIVIDEND transactions  
-- Historical price ingestion  
-- Market data caching  
-- API request logging  
-- Portfolio performance computation  
+It includes:
+
+- FastAPI backend  
+- MySQL database  
+- Live Yahoo Finance integration  
+- ML prediction models  
+- Recommender systems  
+- Risk analytics  
+- Dashboard visualization  
+- CSV import/export  
+- Daily automation  
 - Audit logging  
-- Modern API UI (Scalar)
+- Market data caching  
 
-It is designed for training, prototyping, and extension into a full production system.
+Everything runs **locally**.
 
 ---
 
 # 🏛 Architecture
 
-### ✔ FastAPI  
-REST API backend with modular routing and service layers.
+### ✔ Backend  
+FastAPI modular service‑based architecture.
 
-### ✔ MySQL  
-Relational database storing portfolios, assets, transactions, market data, performance metrics, and logs.
+### ✔ Database  
+MySQL relational schema based on your ERD.
 
-### ✔ Yahoo Finance (yfinance)  
-External API used to fetch live and historical market data.
+### ✔ Market Data  
+Yahoo Finance (`yfinance`) for live + historical data.
 
-### ✔ Scalar API Console  
-Modern interactive API documentation.
+### ✔ ML Layer  
+Local Python ML models for prediction & risk analytics.
+
+### ✔ Recommender Engine  
+Local content‑based + collaborative filtering.
+
+### ✔ Dashboard  
+Local React/Vue frontend with charts & insights.
+
+### ✔ Automation  
+Local scheduler (APScheduler or cron).
+
+### ✔ CSV Import/Export  
+Local file-based ingestion and export.
 
 ---
 
 # 🧩 ERD  
-The system follows the ERD visible in your GitHub tab, containing:
+Your ERD includes:
 
 ### Core Entities  
-- Portfolio  
-- Asset  
-- Portfolio Item  
-- Transaction  
-- Price History  
+- portfolio  
+- asset  
+- portfolio_item  
+- transaction  
+- price_history  
 
 ### Extended Entities  
-- Asset Type  
-- Asset Transaction  
-- Portfolio Performance  
-- Market Data Cache  
-- External API Request  
-- Audit Log  
+- asset_type  
+- asset_transaction  
+- portfolio_performance  
+- market_data_cache  
+- external_api_request  
+- audit_log  
 
-This ERD defines the full workflow of the system.
+### Authentication Entities  
+- user  
+- user_role  
+- user_session  
+
+All entities are implemented in the backend.
 
 ---
 
-# 🔄 Workflow
+# ⭐ Features
 
-## 1️⃣ Portfolio Creation  
-User creates a portfolio → stored in `portfolio`.
+### ✔ Portfolio CRUD  
+### ✔ Asset CRUD  
+### ✔ Portfolio Item Management  
+### ✔ BUY/SELL/DIVIDEND Transactions  
+### ✔ Historical Price Ingestion (Yahoo Finance)  
+### ✔ Market Data Caching  
+### ✔ External API Logging  
+### ✔ Audit Logging  
+### ✔ Portfolio Performance Tracking  
+### ✔ User Authentication (JWT)  
+### ✔ Role-Based Access Control  
+### ✔ CSV Import/Export  
+### ✔ ML Price Prediction  
+### ✔ Asset Recommendation Engine  
+### ✔ Risk Modeling  
+### ✔ Efficient Frontier Optimization  
+### ✔ Dashboard Visualization  
+### ✔ Daily Automated Ingestion  
 
-## 2️⃣ Asset Registration  
-Assets are added manually or fetched from Yahoo Finance → stored in `asset`.
-
-## 3️⃣ Adding Items to Portfolio  
-Portfolio items track quantity + average buy price → stored in `portfolio_item`.
-
-## 4️⃣ Recording Transactions  
-BUY / SELL / DIVIDEND → stored in `transaction` and `asset_transaction`.
-
-## 5️⃣ Fetching Market Data  
-Using yfinance:
-- Live price  
-- Historical OHLCV  
-Stored in:
-- `price_history`  
-- `market_data_cache`  
-- `external_api_request`
-
-## 6️⃣ Performance Calculation  
-Daily valuation computed → stored in `portfolio_performance`.
-
-## 7️⃣ Audit Logging  
-Every important action logged → stored in `audit_log`.
-
-## 8️⃣ API Documentation  
-User interacts with:
-- Swagger (`/docs`)
-- ReDoc (`/redoc`)
-- Scalar (`/scalar`)
+Everything runs locally.
 
 ---
 
@@ -137,9 +159,11 @@ User interacts with:
 | Backend | FastAPI |
 | Database | MySQL |
 | Market Data | Yahoo Finance (yfinance) |
-| API UI | Swagger, ReDoc, Scalar |
+| ML Models | TensorFlow / Prophet / Scikit‑Learn |
+| Recommender | Scikit‑Learn |
+| Dashboard | React / Vue / Chart.js / Plotly |
+| Automation | APScheduler / Cron |
 | Logging | Custom audit + API logs |
-| Testing | pytest |
 
 ---
 
@@ -153,6 +177,7 @@ portfolio_manager/
 │   ├── config.py
 │   │
 │   ├── routes/
+│   │   ├── auth_routes.py
 │   │   ├── portfolio_routes.py
 │   │   ├── asset_routes.py
 │   │   ├── price_routes.py
@@ -160,9 +185,9 @@ portfolio_manager/
 │   │   ├── asset_type_routes.py
 │   │   ├── asset_transaction_routes.py
 │   │   ├── performance_routes.py
-│   │   ├── scalar_ui.py
 │   │
 │   ├── services/
+│   │   ├── auth_service.py
 │   │   ├── portfolio_service.py
 │   │   ├── asset_service.py
 │   │   ├── price_service.py
@@ -173,168 +198,278 @@ portfolio_manager/
 │   │   ├── market_cache_service.py
 │   │   ├── api_logging_service.py
 │   │   ├── audit_service.py
+│   │   ├── csv_service.py
+│   │   ├── ml_service.py
+│   │   ├── recommender_service.py
+│   │   ├── risk_service.py
+│   │   ├── optimization_service.py
 │   │
 │   ├── database/
 │   │   ├── connection.py
-│   │   ├── models.py
-│   │   ├── schemas.py
+│   │   ├── init_db.sql
+│   │   ├── seed_data.sql
 │   │
 │   ├── utils/
 │       ├── logger.py
 │       ├── exceptions.py
 │
+├── dashboard/
+│   ├── src/
+│
 ├── scripts/
-│   ├── init_db.sql
-│   ├── seed_data.py
+│   ├── daily_ingestion.py
+│   ├── export_csv.py
+│   ├── import_csv.py
 │
-├── tests/
-│   ├── test_portfolio.py
-│   ├── test_assets.py
-│   ├── test_prices.py
-│
-└── .env
+└── README.md
 ```
-
----
-
-# 🗄 Database Schema
-
-All tables are defined in:
-
-```
-scripts/init_db.sql
-```
-
-Includes:
-
-### Core Tables  
-- portfolio  
-- asset  
-- portfolio_item  
-- transaction  
-- price_history  
-
-### ERD Extensions  
-- asset_type  
-- asset_transaction  
-- portfolio_performance  
-- market_data_cache  
-- external_api_request  
-- audit_log  
 
 ---
 
 # ⚙ Installation
 
-### Install dependencies
-
 ```bash
-pip install fastapi uvicorn mysql-connector-python yfinance python-dotenv
+pip install fastapi uvicorn mysql-connector-python yfinance python-dotenv pandas scikit-learn prophet tensorflow passlib[bcrypt]
 ```
 
 ---
 
 # 🔐 Environment Variables
 
-Create `.env`:
-
 ```
 DB_HOST=localhost
 DB_USER=root
 DB_PASS=yourpassword
 DB_NAME=portfolio_manager
+
+JWT_SECRET=your_secret_key
+JWT_ALGORITHM=HS256
 ```
 
 ---
 
 # ▶ Running the Application
 
-Start FastAPI:
-
 ```bash
 uvicorn app.main:app --reload
 ```
 
----
+API available at:
 
-# 📚 API Documentation
-
-| UI | URL |
-|----|-----|
-| Swagger | `/docs` |
-| ReDoc | `/redoc` |
-| Scalar | `/scalar` |
-
-Scalar provides the most modern UI.
+- `http://localhost:8000`
+- `/docs`
+- `/redoc`
 
 ---
 
-# 🧩 Core Features
+# 📚 API Endpoints
 
-### ✔ Portfolio CRUD  
-### ✔ Asset CRUD  
-### ✔ Portfolio Item Management  
-### ✔ BUY/SELL/DIVIDEND Transactions  
-### ✔ Historical Price Ingestion  
-### ✔ Market Data Caching  
-### ✔ API Request Logging  
-### ✔ Audit Logging  
-### ✔ Portfolio Performance Tracking  
+### Portfolios  
+- `GET /portfolios/`  
+- `POST /portfolios/`
 
----
+### Assets  
+- `GET /assets/`  
+- `GET /assets/{ticker}`  
+- `POST /assets/{ticker}`  
 
-# 📡 Market Data Workflow
+### Prices (Yahoo Finance + DB)  
+- `GET /prices/{ticker}`  
+- `POST /prices/{ticker}`  
 
-1. User requests price data  
-2. yfinance fetches OHLCV  
-3. Data stored in `price_history`  
-4. Raw JSON cached in `market_data_cache`  
-5. API request logged in `external_api_request`
+### Transactions  
+- `GET /transactions/{portfolio_id}`  
+- `POST /transactions/{portfolio_id}`  
 
----
+### Asset Types  
+- `GET /asset-types/`  
+- `POST /asset-types/`  
 
-# 📈 Performance Tracking Workflow
+### Asset Transactions  
+- `GET /asset-transactions/{asset_id}`  
+- `POST /asset-transactions/{asset_id}`  
 
-1. Compute total portfolio value  
-2. Compare with previous day  
-3. Store:
-   - total_value  
-   - daily_change  
-   - daily_change_percent  
-4. Saved in `portfolio_performance`
+### Portfolio Performance  
+- `GET /performance/{portfolio_id}`  
+- `POST /performance/{portfolio_id}`  
 
----
+### CSV  
+- `POST /csv/import/{type}`  
+- `GET /csv/export/{type}`  
 
-# 🛡 Audit & Logging Workflow
-
-Every important action logs:
-
-- entity_name  
-- entity_id  
-- action  
-- timestamp  
-- details  
-
-Stored in `audit_log`.
+### Auth  
+- `POST /auth/register`  
+- `POST /auth/login`  
+- `GET /auth/me`  
 
 ---
 
-# 🧪 Testing
+# 🔐 User Authentication
 
-Run tests:
+- Local users stored in MySQL  
+- Password hashing via bcrypt  
+- JWT tokens for login  
+- Role-based access control  
+- Portfolio ownership enforced  
 
-```bash
-pytest
-```
+---
+
+# 📁 CSV Import/Export
+
+### Import CSV  
+Supports:
+
+- assets  
+- transactions  
+- price history  
+- portfolio items  
+
+### Export CSV  
+Supports:
+
+- holdings  
+- transactions  
+- price history  
+- performance  
+
+---
+
+# 🤖 Machine Learning Models
+
+### Price Prediction  
+- LSTM  
+- GRU  
+- Prophet  
+- ARIMA  
+
+### Risk Prediction  
+- VaR  
+- volatility  
+- drawdown  
+
+### Asset Classification  
+- growth  
+- value  
+- dividend  
+- high-risk  
+
+### Portfolio Health Score  
+- diversification  
+- volatility  
+- sector exposure  
+
+---
+
+# 🎯 Recommender System
+
+### Content-Based Filtering  
+Based on:
+
+- sector  
+- industry  
+- volatility  
+- market cap  
+
+### Collaborative Filtering  
+Based on:
+
+- similar users  
+- similar portfolios  
+
+### Diversification Engine  
+Suggests assets to reduce risk.
+
+---
+
+# 📊 Dashboard UI
+
+Local dashboard built with:
+
+- React or Vue  
+- Chart.js  
+- Plotly  
+
+Shows:
+
+- price charts  
+- portfolio performance  
+- asset allocation  
+- ML predictions  
+- recommendations  
+- risk analytics  
+
+---
+
+# 🔁 Automation
+
+### Daily Price Ingestion  
+Fetches OHLCV via Yahoo Finance.
+
+### Daily Portfolio Valuation  
+Computes:
+
+- total value  
+- daily change  
+- daily % change  
+
+### Daily Risk Metrics  
+Updates:
+
+- volatility  
+- beta  
+- Sharpe ratio  
+
+---
+
+# 📈 Risk & Analytics
+
+Includes:
+
+- Sharpe Ratio  
+- Beta  
+- Volatility  
+- VaR  
+- Correlation Matrix  
+- Covariance Matrix  
+- Drawdown Analysis  
+
+---
+
+# 🧮 Portfolio Optimization
+
+- Efficient Frontier  
+- Modern Portfolio Theory (MPT)  
+- Monte Carlo Simulation  
+- Optimal Asset Allocation  
+- Risk Parity  
+
+---
+
+# 📡 Logging & Monitoring
+
+### Audit Log  
+Tracks:
+
+- entity changes  
+- updates  
+- deletes  
+
+### External API Request Log  
+Tracks:
+
+- request time  
+- response time  
+- status  
+
+### Market Data Cache  
+Stores raw JSON from Yahoo Finance.
 
 ---
 
 # 🔮 Future Enhancements
 
-- React/Vue frontend  
-- Portfolio charts (Plotly/Chart.js)  
-- Scheduled daily price ingestion  
-- JWT authentication  
-- Role-based access control  
-- Docker deployment  
-- CI/CD pipeline  
+- Strategy backtesting  
+- PDF portfolio reports  
+- Local websocket price streaming  
+- Custom strategy plugins  
+- Multi-user collaboration  

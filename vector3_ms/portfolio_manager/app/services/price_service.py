@@ -1,6 +1,7 @@
-import yfinance as yf
-from vector3_ms.portfolio_manager.app.database.connection import get_db
-from vector3_ms.portfolio_manager.app.services.asset_service import upsert_asset
+from app.database.connection import get_db
+from app.services.asset_service import upsert_asset
+from app.services.data_provider import fetch_price_history
+
 
 def get_price_history(ticker: str):
     db = get_db()
@@ -18,6 +19,7 @@ def get_price_history(ticker: str):
     db.close()
     return result
 
+
 def import_price_history(ticker: str, period="1y", interval="1d"):
     db = get_db()
     cursor = db.cursor()
@@ -27,7 +29,7 @@ def import_price_history(ticker: str, period="1y", interval="1d"):
     cursor.execute("SELECT asset_id FROM asset WHERE ticker=%s", (ticker,))
     asset_id = cursor.fetchone()[0]
 
-    hist = yf.Ticker(ticker).history(period=period, interval=interval)
+    rows = fetch_price_history(ticker, period=period, interval=interval)
 
     sql = """
     INSERT INTO price_history (asset_id, date, open, high, low, close, volume)
@@ -40,15 +42,15 @@ def import_price_history(ticker: str, period="1y", interval="1d"):
         volume = VALUES(volume);
     """
 
-    for idx, row in hist.iterrows():
+    for row in rows:
         cursor.execute(sql, (
             asset_id,
-            idx.date(),
-            row["Open"],
-            row["High"],
-            row["Low"],
-            row["Close"],
-            int(row["Volume"])
+            row["date"],
+            row["open"],
+            row["high"],
+            row["low"],
+            row["close"],
+            row["volume"],
         ))
 
     db.commit()

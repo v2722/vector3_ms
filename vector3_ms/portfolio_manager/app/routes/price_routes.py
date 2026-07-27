@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from vector3_ms.portfolio_manager.app.services.price_service import get_price_history, import_price_history
+from app.services.price_service import get_price_history, import_price_history
 
 router = APIRouter(prefix="/prices", tags=["Prices"])
 

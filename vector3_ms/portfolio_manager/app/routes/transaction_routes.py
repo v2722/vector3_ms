@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from vector3_ms.portfolio_manager.app.services.transaction_service import list_transactions, add_transaction
+from app.services.transaction_service import list_transactions, add_transaction
 
 router = APIRouter(prefix="/transactions", tags=["Transactions"])
 
