@@ -25,9 +25,16 @@ def efficient_frontier(portfolio_id: int, num_portfolios: int = 10000, db=None) 
 
     prices_dict = {}
     for ticker in tickers:
-        sql = "SELECT close FROM price_history WHERE ticker = %s ORDER BY date DESC LIMIT 252"
+        sql = """
+        SELECT ph.close
+        FROM price_history ph
+        JOIN asset a ON ph.asset_id = a.asset_id
+        WHERE a.ticker = %s
+        ORDER BY ph.date DESC
+        LIMIT 252
+        """
         cursor.execute(sql, (ticker,))
-        prices = [row[0] for row in cursor.fetchall()]
+        prices = [row["close"] for row in cursor.fetchall()]
         if prices:
             prices_dict[ticker] = list(reversed(prices))
 

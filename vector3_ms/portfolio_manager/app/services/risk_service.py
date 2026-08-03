@@ -7,7 +7,14 @@ def calculate_volatility(ticker: str, days: int = 252, db=None) -> float:
         db = get_db()
 
     cursor = db.cursor(dictionary=True)
-    sql = "SELECT close FROM price_history WHERE ticker = %s ORDER BY date DESC LIMIT %s"
+    sql = """
+    SELECT ph.close
+    FROM price_history ph
+    JOIN asset a ON ph.asset_id = a.asset_id
+    WHERE a.ticker = %s
+    ORDER BY ph.date DESC
+    LIMIT %s
+    """
     cursor.execute(sql, (ticker, days))
     rows = cursor.fetchall()
     cursor.close()
@@ -143,9 +150,16 @@ def correlation_matrix(portfolio_id: int, db=None) -> dict:
 
     prices_dict = {}
     for ticker in tickers:
-        sql = "SELECT close FROM price_history WHERE ticker = %s ORDER BY date ASC LIMIT 252"
+        sql = """
+        SELECT ph.close
+        FROM price_history ph
+        JOIN asset a ON ph.asset_id = a.asset_id
+        WHERE a.ticker = %s
+        ORDER BY ph.date ASC
+        LIMIT 252
+        """
         cursor.execute(sql, (ticker,))
-        prices = [row[0] for row in cursor.fetchall()]
+        prices = [row["close"] for row in cursor.fetchall()]
         if prices:
             prices_dict[ticker] = prices
 

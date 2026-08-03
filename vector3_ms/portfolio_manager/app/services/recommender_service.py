@@ -8,7 +8,7 @@ def content_based_recommendations(ticker: str, limit: int = 5, db=None) -> dict:
 
     cursor = db.cursor(dictionary=True)
 
-    cursor.execute("SELECT sector, industry, volatility FROM asset WHERE ticker = %s", (ticker,))
+    cursor.execute("SELECT sector, industry FROM asset WHERE ticker = %s", (ticker,))
     asset = cursor.fetchone()
 
     if not asset:
@@ -18,16 +18,14 @@ def content_based_recommendations(ticker: str, limit: int = 5, db=None) -> dict:
 
     sector = asset["sector"]
     industry = asset["industry"]
-    volatility = asset["volatility"] or 0.15
 
     sql = """
-    SELECT ticker, name, sector, volatility
+    SELECT ticker, name, sector, industry
     FROM asset
     WHERE ticker != %s AND sector = %s
-    ORDER BY ABS(volatility - %s) ASC
     LIMIT %s
     """
-    cursor.execute(sql, (ticker, sector, volatility, limit))
+    cursor.execute(sql, (ticker, sector, limit))
     recommendations = cursor.fetchall()
     cursor.close()
     db.close()
@@ -39,7 +37,7 @@ def content_based_recommendations(ticker: str, limit: int = 5, db=None) -> dict:
             {
                 "ticker": r["ticker"],
                 "name": r["name"],
-                "reason": f"Similar sector ({sector}) and volatility"
+                "reason": f"Similar sector ({sector}) and industry ({r['industry']})"
             }
             for r in recommendations
         ]
@@ -54,7 +52,7 @@ def diversification_recommendations(portfolio_id: int, limit: int = 5, db=None) 
     sql = """
     SELECT DISTINCT a.sector, COUNT(*) as count
     FROM transaction t
-    JOIN asset a ON t.asset_id = a.id
+    JOIN asset a ON t.asset_id = a.asset_id
     WHERE t.portfolio_id = %s
     GROUP BY a.sector
     ORDER BY count DESC
@@ -70,9 +68,9 @@ def diversification_recommendations(portfolio_id: int, limit: int = 5, db=None) 
     overrepresented_sector = sectors[0]["sector"] if sectors else None
 
     sql = """
-    SELECT ticker, name, sector, volatility
+    SELECT ticker, name, sector
     FROM asset
-    WHERE sector != %s AND volatility < 0.25
+    WHERE sector != %s
     ORDER BY RAND()
     LIMIT %s
     """
@@ -101,22 +99,33 @@ def collaborative_filtering(user_id: int, limit: int = 5, db=None) -> dict:
 
     cursor = db.cursor(dictionary=True)
 
-    sql = """
-    SELECT DISTINCT a.ticker, a.name
+    # Portfolio holdings of the user (or target portfolio)
+    cursor.execute(
+        "SELECT DISTINCT a.ticker FROM transaction t "
+        "JOIN asset a ON t.asset_id = a.asset_id "
+        "WHERE t.portfolio_id = %s",
+        (user_id,)
+    )
+    held = {row["ticker"] for row in cursor.fetchall()}
+
+    placeholders = ",".join(["%s"] * len(held)) if held else "'__none__'"
+    args = [user_id]
+    if held:
+        args.extend(held)
+
+    sql = f"""
+    SELECT a.ticker, a.name, COUNT(*) as popularity
     FROM transaction t
-    JOIN asset a ON t.asset_id = a.id
+    JOIN asset a ON t.asset_id = a.asset_id
     WHERE t.portfolio_id IN (
-        SELECT id FROM portfolio WHERE user_id != %s LIMIT 10
+        SELECT portfolio_id FROM portfolio
     )
-    AND a.ticker NOT IN (
-        SELECT a2.ticker FROM transaction t2
-        JOIN asset a2 ON t2.asset_id = a2.id
-        WHERE t2.portfolio_id IN (SELECT id FROM portfolio WHERE user_id = %s)
-    )
-    ORDER BY RAND()
+    AND a.ticker NOT IN ({placeholders})
+    GROUP BY a.ticker, a.name
+    ORDER BY popularity DESC
     LIMIT %s
     """
-    cursor.execute(sql, (user_id, user_id, limit))
+    cursor.execute(sql, args + [limit])
     recommendations = cursor.fetchall()
     cursor.close()
     db.close()
