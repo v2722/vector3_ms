@@ -62,7 +62,7 @@ FastAPI modular service-based architecture.
 
 ### Database
 
-MySQL relational schema based on your ERD.
+MySQL relational schema based on the ERD below.
 
 ### Market Data
 
@@ -92,7 +92,7 @@ Local file-based ingestion and export.
 
 ## ERD
 
-Your ERD includes:
+![ERD](ERD_Portfolio_mgmt_system.PNG)
 
 ### Core Entities
 
@@ -162,57 +162,92 @@ All entities are implemented in the backend.
 ## Project Structure
 
 ```
-portfolio_manager/
-│
-├── app/
-│   ├── main.py
-│   ├── config.py
+.
+├── portfolio_manager/
+│   ├── app/
+│   │   ├── main.py
+│   │   ├── config.py
+│   │   │
+│   │   ├── routes/
+│   │   │   ├── auth_routes.py
+│   │   │   ├── portfolio_routes.py
+│   │   │   ├── asset_routes.py
+│   │   │   ├── price_routes.py
+│   │   │   ├── transaction_routes.py
+│   │   │   ├── asset_type_routes.py
+│   │   │   ├── asset_transaction_routes.py
+│   │   │   ├── performance_routes.py
+│   │   │   ├── csv_routes.py
+│   │   │   ├── ml_routes.py
+│   │   │   ├── recommender_routes.py
+│   │   │   ├── risk_routes.py
+│   │   │   ├── optimization_routes.py
+│   │   │   └── scalar_ui.py
+│   │   │
+│   │   ├── services/
+│   │   │   ├── auth_service.py
+│   │   │   ├── portfolio_service.py
+│   │   │   ├── asset_service.py
+│   │   │   ├── price_service.py
+│   │   │   ├── transaction_service.py
+│   │   │   ├── asset_type_service.py
+│   │   │   ├── asset_transaction_service.py
+│   │   │   ├── portfolio_performance_service.py
+│   │   │   ├── market_cache_service.py
+│   │   │   ├── api_logging_service.py
+│   │   │   ├── audit_service.py
+│   │   │   ├── csv_service.py
+│   │   │   ├── ml_service.py
+│   │   │   ├── ml_service_enhanced.py
+│   │   │   ├── recommender_service.py
+│   │   │   ├── risk_service.py
+│   │   │   ├── optimization_service.py
+│   │   │   ├── data_provider.py
+│   │   │   └── portfolio_service.py
+│   │   │
+│   │   ├── database/
+│   │   │   ├── connection.py
+│   │   │   ├── models.py
+│   │   │   ├── schemas.py
+│   │   │   └── __init__.py
+│   │   │
+│   │   ├── ingestion/
+│   │   │   ├── fetch_assets.py
+│   │   │   ├── fetch_prices.py
+│   │   │   └── __init__.py
+│   │   │
+│   │   ├── tests/
+│   │   │   ├── test_assets.py
+│   │   │   ├── test_portfolio.py
+│   │   │   ├── test_prices.py
+│   │   │   └── __init__.py
+│   │   │
+│   │   └── utils/
+│   │       ├── logger.py
+│   │       ├── exceptions.py
+│   │       └── __init__.py
 │   │
-│   ├── routes/
-│   │   ├── auth_routes.py
-│   │   ├── portfolio_routes.py
-│   │   ├── asset_routes.py
-│   │   ├── price_routes.py
-│   │   ├── transaction_routes.py
-│   │   ├── asset_type_routes.py
-│   │   ├── asset_transaction_routes.py
-│   │   ├── performance_routes.py
-│   │
-│   ├── services/
-│   │   ├── auth_service.py
-│   │   ├── portfolio_service.py
-│   │   ├── asset_service.py
-│   │   ├── price_service.py
-│   │   ├── transaction_service.py
-│   │   ├── asset_type_service.py
-│   │   ├── asset_transaction_service.py
-│   │   ├── portfolio_performance_service.py
-│   │   ├── market_cache_service.py
-│   │   ├── api_logging_service.py
-│   │   ├── audit_service.py
-│   │   ├── csv_service.py
-│   │   ├── ml_service.py
-│   │   ├── recommender_service.py
-│   │   ├── risk_service.py
-│   │   ├── optimization_service.py
-│   │
-│   ├── database/
-│   │   ├── connection.py
+│   ├── scripts/
+│   │   ├── daily_ingestion.py
+│   │   ├── export_csv.py
+│   │   ├── import_csv.py
 │   │   ├── init_db.sql
-│   │   ├── seed_data.sql
+│   │   └── seed_data.py
 │   │
-│   ├── utils/
-│       ├── logger.py
-│       ├── exceptions.py
+│   ├── .env
+│   ├── .gitignore
+│   ├── requirements.txt
+│   ├── README.md
+│   ├── flowchart.PNG
+│   ├── IMPLEMENTATION_SUMMARY.md
+│   ├── LSTM_QUICKSTART.md
+│   ├── LSTM_TUNING.md
+│   ├── ML_ENHANCEMENTS.md
+│   ├── populate_prices.py
+│   ├── QUICK_REFERENCE.md
+│   └── test_lstm_prediction.py
 │
-├── dashboard/
-│   ├── src/
-│
-├── scripts/
-│   ├── daily_ingestion.py
-│   ├── export_csv.py
-│   ├── import_csv.py
-│
+├── ERD_Portfolio_mgmt_system.PNG
 └── README.md
 ```
 
@@ -220,13 +255,38 @@ portfolio_manager/
 
 ## Installation
 
+### Prerequisites
+
+- Python 3.10+
+- MySQL 8.0+
+- pip
+
+### Setup
+
 ```bash
-pip install fastapi uvicorn mysql-connector-python yfinance python-dotenv pandas scikit-learn prophet tensorflow passlib[bcrypt]
+# Clone the repository
+git clone <repository-url>
+cd vector3_ms
+
+# Create a virtual environment
+python -m venv venv
+
+# Activate the virtual environment
+# Windows:
+venv\Scripts\activate
+# macOS/Linux:
+source venv/bin/activate
+
+# Install dependencies
+cd portfolio_manager
+pip install -r requirements.txt
 ```
 
 ---
 
 ## Environment Variables
+
+Create a `.env` file in the `portfolio_manager/` directory:
 
 ```
 DB_HOST=localhost
@@ -236,6 +296,10 @@ DB_NAME=portfolio_manager
 
 JWT_SECRET=your_secret_key
 JWT_ALGORITHM=HS256
+JWT_EXPIRATION_HOURS=24
+
+ALPHA_VANTAGE_API_KEY=your_alpha_vantage_key
+FINNHUB_API_KEY=your_finnhub_key
 ```
 
 ---
@@ -243,14 +307,16 @@ JWT_ALGORITHM=HS256
 ## Running the Application
 
 ```bash
+cd portfolio_manager
 uvicorn app.main:app --reload
 ```
 
 API available at:
 
 - `http://localhost:8000`
-- `/docs`
-- `/redoc`
+- `/docs` — Swagger UI
+- `/redoc` — ReDoc
+- `/scalar` — Scalar API Console
 
 ---
 
@@ -489,3 +555,9 @@ Stores raw JSON from Yahoo Finance.
 - Local websocket price streaming
 - Custom strategy plugins
 - Multi-user collaboration
+
+---
+
+## License
+
+This project is licensed under the MIT License.
