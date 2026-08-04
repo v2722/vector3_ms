@@ -5,7 +5,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import yfinance as yf
 from datetime import datetime, timedelta
 from app.database.connection import get_db
-from app.services.price_service import fetch_and_store_prices
+from app.services.price_service import import_price_history
 
 def ingest_daily_prices():
     db = get_db()
@@ -23,7 +23,7 @@ def ingest_daily_prices():
     for ticker in tickers:
         try:
             print(f"Fetching prices for {ticker}...")
-            fetch_and_store_prices(ticker)
+            import_price_history(ticker)
             print(f"✓ {ticker} updated")
         except Exception as e:
             print(f"✗ Error fetching {ticker}: {e}")
@@ -50,11 +50,10 @@ def update_portfolio_valuations():
             SELECT
                 SUM(CASE WHEN t.type = 'BUY' THEN t.quantity ELSE -t.quantity END * ph.close) as total_value
             FROM transaction t
-            JOIN asset a ON t.asset_id = a.id
             JOIN (
-                SELECT ticker, close FROM price_history
+                SELECT asset_id, close FROM price_history
                 WHERE date = CURDATE()
-            ) ph ON a.ticker = ph.ticker
+            ) ph ON ph.asset_id = t.asset_id
             WHERE t.portfolio_id = %s
             """
             cursor.execute(sql, (portfolio_id,))
@@ -74,11 +73,15 @@ def update_portfolio_valuations():
             daily_change_percent = (daily_change / prev_value * 100) if prev_value > 0 else 0
 
             sql = """
-            INSERT INTO portfolio_performance (portfolio_id, date, total_value, daily_change, daily_change_percent, total_gain_loss)
-            VALUES (%s, CURDATE(), %s, %s, %s, 0)
-            ON DUPLICATE KEY UPDATE total_value=%s, daily_change=%s, daily_change_percent=%s
+            DELETE FROM portfolio_performance WHERE portfolio_id = %s AND date = CURDATE()
             """
-            cursor.execute(sql, (portfolio_id, total_value, daily_change, daily_change_percent, total_value, daily_change, daily_change_percent))
+            cursor.execute(sql, (portfolio_id,))
+
+            sql = """
+            INSERT INTO portfolio_performance (portfolio_id, date, total_value, daily_change, daily_change_percent)
+            VALUES (%s, CURDATE(), %s, %s, %s)
+            """
+            cursor.execute(sql, (portfolio_id, total_value, daily_change, daily_change_percent))
             db.commit()
 
             cursor.close()
