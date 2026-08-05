@@ -31,3 +31,13 @@ def add_transaction(portfolio_id: int, data: dict):
     cursor.close()
     db.close()
     return {"message": "Transaction added"}
+
+
+def delete_transaction(transaction_id: int):
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+    cursor.execute("DELETE FROM transaction WHERE transaction_id = %s", (transaction_id,))
+    db.commit()
+    cursor.close()
+    db.close()
+    return {"message": "Transaction deleted", "transaction_id": transaction_id}

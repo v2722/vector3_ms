@@ -63,3 +63,13 @@ def upsert_asset(ticker: str, data=None):
     cursor.close()
     db.close()
     return {"message": "Asset updated"}
+
+
+def delete_asset(ticker: str):
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+    cursor.execute("DELETE FROM asset WHERE ticker = %s", (ticker,))
+    db.commit()
+    cursor.close()
+    db.close()
+    return {"message": "Asset deleted", "ticker": ticker}
