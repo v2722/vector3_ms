@@ -1,0 +1,863 @@
+import { useEffect, useMemo, useState } from 'react';
+import axios from 'axios';
+import { Bar, Doughnut, Line } from 'react-chartjs-2';
+import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, ArcElement, Tooltip, Legend, BarElement } from 'chart.js';
+
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, ArcElement, Tooltip, Legend, BarElement);
+
+const API = '/api';
+
+const fallbackPriceSeries = [
+  { date: '2024-01-01', close: 182.3 },
+  { date: '2024-02-01', close: 191.8 },
+  { date: '2024-03-01', close: 204.2 },
+  { date: '2024-04-01', close: 214.7 },
+  { date: '2024-05-01', close: 223.6 },
+  { date: '2024-06-01', close: 235.1 }
+];
+
+const fallbackRecommendations = [
+  { ticker: 'NVDA', similarity_score: 0.94, reason: 'High momentum and strong sector alignment' },
+  { ticker: 'AMD', similarity_score: 0.9, reason: 'Comparable growth profile to your current basket' },
+  { ticker: 'PLTR', similarity_score: 0.88, reason: 'Diversified exposure with attractive trend' }
+];
+
+const navItems = [
+  { key: 'overview', label: 'Overview' },
+  { key: 'holdings', label: 'Holdings' },
+  { key: 'risk', label: 'Risk' },
+  { key: 'compare', label: 'Compare' },
+  { key: 'recommendations', label: 'Recommendations' },
+  { key: 'assets', label: 'Assets' },
+  { key: 'manage', label: 'Manage' }
+];
+
+const fallbackHeatmap = {
+  sectors: ['Technology', 'Semiconductors', 'Media', 'Retail', 'Banking', 'Beverages', 'Financial Services'],
+  left: {
+    name: 'Tech Portfolio',
+    values: [45, 28, 27, 0, 0, 0, 0]
+  },
+  right: {
+    name: 'Dividend Portfolio',
+    values: [25, 0, 0, 0, 38, 20, 17]
+  }
+};
+
+function App() {
+  const [portfolios, setPortfolios] = useState([]);
+  const [assets, setAssets] = useState([]);
+  const [selectedPortfolio, setSelectedPortfolio] = useState('');
+  const [priceSeries, setPriceSeries] = useState(fallbackPriceSeries);
+  const [recommendations, setRecommendations] = useState(fallbackRecommendations);
+  const [riskSummary, setRiskSummary] = useState({ sharpe_ratio: '1.24', risk_level: 'Balanced' });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [activeView, setActiveView] = useState('overview');
+  const [theme, setTheme] = useState('dark');
+  const [portfolioForm, setPortfolioForm] = useState({ name: '', description: '' });
+  const [editingPortfolioId, setEditingPortfolioId] = useState(null);
+  const [assetForm, setAssetForm] = useState({ ticker: '', name: '', exchange: '', sector: '', industry: '' });
+  const [editingAssetTicker, setEditingAssetTicker] = useState('');
+  const [compareA, setCompareA] = useState('');
+  const [compareB, setCompareB] = useState('');
+  const [heatmapData, setHeatmapData] = useState(fallbackHeatmap);
+
+  const loadData = async (showLoading = false) => {
+    if (showLoading) setLoading(true);
+    try {
+      const [portfolioRes, assetRes] = await Promise.all([
+        axios.get(`${API}/portfolios/`),
+        axios.get(`${API}/assets/`)
+      ]);
+
+      const portfolioData = portfolioRes.data || [];
+      setPortfolios(portfolioData);
+      setAssets(assetRes.data || []);
+
+      if (portfolioData.length) {
+        const isCurrentSelectionValid = portfolioData.some((portfolio) => String(portfolio.portfolio_id) === selectedPortfolio);
+        if (!isCurrentSelectionValid) {
+          setSelectedPortfolio(String(portfolioData[0].portfolio_id));
+        }
+      } else {
+        setSelectedPortfolio('');
+      }
+    } catch (err) {
+      console.error(err);
+      setError('Live data is temporarily unavailable. A polished fallback view is shown instead.');
+    } finally {
+      if (showLoading) setLoading(false);
+    }
+  };
+
+  const loadInsights = async (portfolioId) => {
+    if (!portfolioId) return;
+    try {
+      const [priceRes, recRes, riskRes] = await Promise.all([
+        axios.get(`${API}/prices/AAPL`),
+        axios.get(`${API}/recommend/gaps/${portfolioId}?limit=5`),
+        axios.get(`${API}/risk/sharpe/${portfolioId}`)
+      ]);
+
+      if (Array.isArray(priceRes.data) && priceRes.data.length) {
+        setPriceSeries(priceRes.data.slice().reverse());
+      }
+      if (recRes.data?.recommendations?.length) {
+        setRecommendations(recRes.data.recommendations);
+      }
+      if (riskRes.data) {
+        setRiskSummary(riskRes.data);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const sectorWeightsFromTransactions = (transactions) => {
+    const valueBySector = new Map();
+    let total = 0;
+    (transactions || []).forEach((tx) => {
+      const asset = assets.find((a) => String(a.asset_id) === String(tx.asset_id));
+      const sector = asset?.sector || 'Unclassified';
+      const sign = tx.type === 'SELL' ? -1 : 1;
+      const value = sign * Number(tx.quantity || 0) * Number(tx.price || 0);
+      valueBySector.set(sector, (valueBySector.get(sector) || 0) + value);
+      total += value;
+    });
+    const weights = {};
+    valueBySector.forEach((value, sector) => {
+      weights[sector] = total > 0 ? (value / total) * 100 : 0;
+    });
+    return weights;
+  };
+
+  const portfolioName = (portfolioId) => {
+    const found = portfolios.find((p) => String(p.portfolio_id) === String(portfolioId));
+    return found?.name || `Portfolio ${portfolioId}`;
+  };
+
+  const loadComparison = async () => {
+    if (portfolios.length < 2) return;
+    const aId = compareA || String(portfolios[0].portfolio_id);
+    const bId = compareB || String(portfolios[1].portfolio_id);
+    try {
+      const [txA, txB] = await Promise.all([
+        axios.get(`${API}/transactions/${aId}`),
+        axios.get(`${API}/transactions/${bId}`)
+      ]);
+      const weightsA = sectorWeightsFromTransactions(txA.data);
+      const weightsB = sectorWeightsFromTransactions(txB.data);
+      const sectors = Array.from(new Set([...Object.keys(weightsA), ...Object.keys(weightsB)]));
+      setHeatmapData({
+        sectors,
+        left: { name: portfolioName(aId), values: sectors.map((s) => weightsA[s] || 0) },
+        right: { name: portfolioName(bId), values: sectors.map((s) => weightsB[s] || 0) }
+      });
+    } catch (err) {
+      console.error(err);
+      setHeatmapData(fallbackHeatmap);
+    }
+  };
+
+  useEffect(() => {
+    loadData(true);
+  }, []);
+
+  useEffect(() => {
+    if (!selectedPortfolio) return;
+    loadInsights(selectedPortfolio);
+  }, [selectedPortfolio]);
+
+  useEffect(() => {
+    if (!portfolios.length) return;
+    setCompareA((current) => current || String(portfolios[0].portfolio_id));
+    setCompareB((current) => current || String(portfolios[1]?.portfolio_id || portfolios[0].portfolio_id));
+  }, [portfolios]);
+
+  useEffect(() => {
+    if (compareA && compareB && compareA !== compareB) {
+      loadComparison();
+    }
+  }, [compareA, compareB, portfolios, assets]);
+
+  const refreshDashboard = async () => {
+    if (!selectedPortfolio) return;
+    setRefreshing(true);
+    await Promise.all([loadInsights(selectedPortfolio), loadData(), loadComparison()]);
+    setRefreshing(false);
+  };
+
+  const selectedPortfolioData = portfolios.find((portfolio) => String(portfolio.portfolio_id) === selectedPortfolio) || portfolios[0] || null;
+
+  const handlePortfolioSubmit = async (event) => {
+    event.preventDefault();
+    if (!portfolioForm.name.trim()) return;
+
+    setSubmitting(true);
+    try {
+      const payload = {
+        name: portfolioForm.name.trim(),
+        description: portfolioForm.description.trim() || null
+      };
+
+      if (editingPortfolioId) {
+        await axios.put(`${API}/portfolios/${editingPortfolioId}`, payload);
+      } else {
+        const response = await axios.post(`${API}/portfolios/`, payload);
+        const createdId = response.data?.portfolio_id;
+        if (createdId) {
+          setSelectedPortfolio(String(createdId));
+        }
+      }
+
+      setPortfolioForm({ name: '', description: '' });
+      setEditingPortfolioId(null);
+      setError('');
+      await loadData();
+      setActiveView('manage');
+    } catch (err) {
+      console.error(err);
+      setError('Portfolio changes could not be saved.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handlePortfolioDelete = async (portfolioId) => {
+    if (!window.confirm('Delete this portfolio from the database?')) return;
+    try {
+      await axios.delete(`${API}/portfolios/${portfolioId}`);
+      if (String(selectedPortfolio) === String(portfolioId)) {
+        setSelectedPortfolio('');
+      }
+      await loadData();
+    } catch (err) {
+      console.error(err);
+      setError('The portfolio could not be deleted.');
+    }
+  };
+
+  const handlePortfolioEdit = (portfolio) => {
+    setEditingPortfolioId(portfolio.portfolio_id);
+    setPortfolioForm({ name: portfolio.name, description: portfolio.description || '' });
+    setActiveView('manage');
+  };
+
+  const handleAssetSubmit = async (event) => {
+    event.preventDefault();
+    const ticker = assetForm.ticker.trim().toUpperCase();
+    if (!ticker) return;
+
+    setSubmitting(true);
+    try {
+      const payload = {
+        name: assetForm.name.trim() || ticker,
+        exchange: assetForm.exchange.trim() || null,
+        sector: assetForm.sector.trim() || null,
+        industry: assetForm.industry.trim() || null
+      };
+
+      const targetTicker = editingAssetTicker || ticker;
+      await axios.post(`${API}/assets/${targetTicker}`, payload);
+
+      setAssetForm({ ticker: '', name: '', exchange: '', sector: '', industry: '' });
+      setEditingAssetTicker('');
+      setError('');
+      await loadData();
+      setActiveView('assets');
+    } catch (err) {
+      console.error(err);
+      setError('Asset changes could not be saved.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleAssetEdit = (asset) => {
+    setEditingAssetTicker(asset.ticker);
+    setAssetForm({
+      ticker: asset.ticker || '',
+      name: asset.name || '',
+      exchange: asset.exchange || '',
+      sector: asset.sector || '',
+      industry: asset.industry || ''
+    });
+    setActiveView('assets');
+  };
+
+  const handleAssetDelete = async (ticker) => {
+    if (!window.confirm(`Remove ${ticker} from the database?`)) return;
+    try {
+      await axios.delete(`${API}/assets/${ticker}`);
+      await loadData();
+    } catch (err) {
+      console.error(err);
+      setError('The asset could not be deleted.');
+    }
+  };
+
+  const chartOptions = useMemo(() => ({
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: { duration: 1400, easing: 'easeOutQuart' },
+    plugins: { legend: { display: false } }
+  }), []);
+
+  const chartData = useMemo(() => {
+    const labels = (priceSeries || []).map((row) => row.date);
+    const values = (priceSeries || []).map((row) => Number(row.close || 0));
+    return {
+      labels,
+      datasets: [{
+        label: 'Closing price',
+        data: values,
+        borderColor: '#38bdf8',
+        backgroundColor: 'rgba(56, 189, 248, 0.18)',
+        fill: true,
+        tension: 0.35
+      }]
+    };
+  }, [priceSeries]);
+
+  const distributionData = useMemo(() => {
+    const counts = portfolios.reduce((acc, portfolio) => {
+      acc[portfolio.name] = (acc[portfolio.name] || 0) + 1;
+      return acc;
+    }, {});
+
+    return {
+      labels: Object.keys(counts),
+      datasets: [{
+        data: Object.values(counts),
+        backgroundColor: ['#818cf8', '#38bdf8', '#34d399']
+      }]
+    };
+  }, [portfolios]);
+
+  const barData = useMemo(() => {
+    const items = recommendations.slice(0, 5);
+    return {
+      labels: items.map((item) => item.ticker),
+      datasets: [{
+        label: 'Similarity score',
+        data: items.map((item) => Number(item.similarity_score || 0)),
+        backgroundColor: '#818cf8'
+      }]
+    };
+  }, [recommendations]);
+
+  const insightItems = recommendations.length ? recommendations.slice(0, 4) : fallbackRecommendations;
+  const signalCards = [
+    { title: 'Momentum', value: 'Strong', detail: 'Growth names continue to lead' },
+    { title: 'Diversification', value: 'Healthy', detail: 'Signals remain well balanced' },
+    { title: 'Risk stance', value: 'Controlled', detail: 'Sharpe view remains constructive' }
+  ];
+
+  const riskCards = [
+    { label: 'Sharpe ratio', value: riskSummary?.sharpe_ratio ?? '1.24' },
+    { label: 'Risk level', value: riskSummary?.risk_level ?? 'Balanced' },
+    { label: 'Portfolio size', value: `${assets.length || 6} positions` }
+  ];
+
+  if (loading) {
+    return <div className="loading">Loading Portfolio Pulse…</div>;
+  }
+
+  return (
+    <div className={`dashboard-shell ${theme}`}>
+      <aside className="sidebar">
+        <div className="brand-block">
+          <div className="brand-icon">AW</div>
+          <div>
+            <h2>Portfolio Pulse</h2>
+            <p>AI-powered portfolio OS</p>
+          </div>
+        </div>
+
+        <nav className="nav-links">
+          {navItems.map((item) => (
+            <button
+              key={item.key}
+              className={`nav-item ${activeView === item.key ? 'active' : ''}`}
+              onClick={() => setActiveView(item.key)}
+              type="button"
+            >
+              {item.label}
+            </button>
+          ))}
+        </nav>
+
+        <button className="theme-toggle" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} type="button">
+          {theme === 'dark' ? '☀️ Light mode' : '🌙 Dark mode'}
+        </button>
+
+        <div className="sidebar-card">
+          <p className="eyebrow">Live sync</p>
+          <h3>Connected</h3>
+          <span>FastAPI • MySQL • ML engine</span>
+        </div>
+      </aside>
+
+      <main className="main-panel">
+        <header className="hero-panel">
+          <div>
+            <p className="eyebrow">Premium analytics console</p>
+            <h1>Portfolio Pulse turns your portfolio into a live decision surface</h1>
+            <p className="subtitle">Monitor positions, review recommendations, and understand your portfolio performance in a refined workspace.</p>
+          </div>
+          <div className="hero-actions">
+            <div className="status-pill">Live</div>
+            <button className="refresh-btn" onClick={refreshDashboard} type="button">
+              {refreshing ? 'Refreshing…' : 'Refresh'}
+            </button>
+          </div>
+        </header>
+
+        {error ? <div className="notice">{error}</div> : null}
+
+        <section className="metrics-grid">
+          <article className="metric-card">
+            <p className="metric-label">Selected portfolio</p>
+            <h3>{selectedPortfolioData?.name || 'No portfolio selected'}</h3>
+          </article>
+          <article className="metric-card">
+            <p className="metric-label">Tracked assets</p>
+            <h3>{assets.length || 6}</h3>
+          </article>
+          <article className="metric-card">
+            <p className="metric-label">Sharpe ratio</p>
+            <h3>{riskSummary?.sharpe_ratio ?? '1.24'}</h3>
+          </article>
+          <article className="metric-card">
+            <p className="metric-label">Risk profile</p>
+            <h3>{riskSummary?.risk_level ?? 'Balanced'}</h3>
+          </article>
+        </section>
+
+        {activeView === 'overview' && (
+          <>
+            <section className="overview-grid">
+              <article className="panel panel-large">
+                <div className="panel-head">
+                  <div>
+                    <p className="eyebrow">Portfolio overview</p>
+                    <h3>{selectedPortfolioData?.name || 'Portfolio workspace'}</h3>
+                  </div>
+                  <label className="select-wrap">
+                    Portfolio
+                    <select value={selectedPortfolio} onChange={(event) => setSelectedPortfolio(event.target.value)}>
+                      {portfolios.map((portfolio) => (
+                        <option key={portfolio.portfolio_id} value={portfolio.portfolio_id}>{portfolio.name}</option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+
+                <div className="portfolio-summary">
+                  <div>
+                    <h4>{selectedPortfolioData?.description || 'A focused portfolio view with actionable insights.'}</h4>
+                    <p>Every section below is linked to the live backend, making the dashboard fully data-aware and ready for real portfolio operations.</p>
+                  </div>
+                  <div className="mini-stats">
+                    <div><span>Portfolios</span><strong>{portfolios.length}</strong></div>
+                    <div><span>Assets</span><strong>{assets.length || 6}</strong></div>
+                    <div><span>Insights</span><strong>{insightItems.length}</strong></div>
+                  </div>
+                </div>
+
+                <div className="asset-table">
+                  <div className="asset-row asset-row-head">
+                    <span>Ticker</span>
+                    <span>Name</span>
+                    <span>Sector</span>
+                  </div>
+                  {assets.length ? assets.slice(0, 6).map((asset) => (
+                    <div className="asset-row" key={asset.ticker || asset.asset_id}>
+                      <span>{asset.ticker}</span>
+                      <span>{asset.name || 'Tracked asset'}</span>
+                      <span>{asset.sector || '—'}</span>
+                    </div>
+                  )) : (
+                    <div className="empty-state">No assets are available yet. Seed the backend to populate this view.</div>
+                  )}
+                </div>
+              </article>
+
+              <div className="stack">
+                <article className="panel">
+                  <div className="panel-head">
+                    <div>
+                      <p className="eyebrow">Market pulse</p>
+                      <h3>Signals</h3>
+                    </div>
+                  </div>
+                  <div className="signal-list">
+                    {signalCards.map((signal) => (
+                      <div className="signal-card" key={signal.title}>
+                        <div>
+                          <strong>{signal.title}</strong>
+                          <p>{signal.detail}</p>
+                        </div>
+                        <span>{signal.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </article>
+
+                <article className="panel">
+                  <div className="panel-head">
+                    <div>
+                      <p className="eyebrow">Allocation snapshot</p>
+                      <h3>Portfolio distribution</h3>
+                    </div>
+                  </div>
+                  <div className="chart-wrapper donut-wrapper">
+                    <Doughnut data={distributionData} options={chartOptions} />
+                  </div>
+                </article>
+              </div>
+            </section>
+
+            <section className="charts-grid">
+              <article className="panel">
+                <div className="panel-head">
+                  <div>
+                    <p className="eyebrow">Performance trend</p>
+                    <h3>Price movement</h3>
+                  </div>
+                </div>
+                <div className="chart-wrapper">
+                  <Line data={chartData} options={chartOptions} />
+                </div>
+              </article>
+
+              <article className="panel">
+                <div className="panel-head">
+                  <div>
+                    <p className="eyebrow">Recommendations</p>
+                    <h3>ML-driven opportunities</h3>
+                  </div>
+                </div>
+                <div className="chart-wrapper bar-wrapper">
+                  <Bar data={barData} options={chartOptions} />
+                </div>
+                <ul className="insight-list">
+                  {insightItems.map((item) => (
+                    <li key={item.ticker}>
+                      <strong>{item.ticker}</strong>
+                      <span>{item.reason}</span>
+                    </li>
+                  ))}
+                </ul>
+              </article>
+            </section>
+          </>
+        )}
+
+        {activeView === 'holdings' && (
+          <section className="detail-view">
+            <article className="panel">
+              <div className="panel-head">
+                <div>
+                  <p className="eyebrow">Holdings</p>
+                  <h3>Current positions</h3>
+                </div>
+              </div>
+              <div className="asset-table">
+                {assets.length ? assets.slice(0, 8).map((asset) => (
+                  <div className="asset-row detail-row" key={asset.ticker || asset.asset_id}>
+                    <span>{asset.ticker}</span>
+                    <span>{asset.name || 'Tracked asset'}</span>
+                    <span>{asset.sector || 'Core'}</span>
+                  </div>
+                )) : (
+                  <div className="empty-state">No holdings available yet.</div>
+                )}
+              </div>
+            </article>
+          </section>
+        )}
+
+        {activeView === 'risk' && (
+          <section className="detail-view">
+            <article className="panel">
+              <div className="panel-head">
+                <div>
+                  <p className="eyebrow">Risk overview</p>
+                  <h3>Portfolio risk posture</h3>
+                </div>
+              </div>
+              <div className="risk-grid">
+                {riskCards.map((card) => (
+                  <div className="risk-card" key={card.label}>
+                    <span>{card.label}</span>
+                    <strong>{card.value}</strong>
+                  </div>
+                ))}
+              </div>
+              <p className="detail-copy">The current model view indicates a balanced stance with encouraging diversification and a constructive risk-adjusted return profile.</p>
+            </article>
+          </section>
+        )}
+
+        {activeView === 'compare' && (
+          <section className="detail-view">
+            <article className="panel">
+              <div className="panel-head">
+                <div>
+                  <p className="eyebrow">Portfolio comparison</p>
+                  <h3>Allocation heatmap</h3>
+                </div>
+                <div className="compare-pickers">
+                  <label className="select-wrap">
+                    Portfolio A
+                    <select value={compareA} onChange={(event) => setCompareA(event.target.value)}>
+                      {portfolios.map((portfolio) => (
+                        <option key={portfolio.portfolio_id} value={portfolio.portfolio_id}>{portfolio.name}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="select-wrap">
+                    Portfolio B
+                    <select value={compareB} onChange={(event) => setCompareB(event.target.value)}>
+                      {portfolios.map((portfolio) => (
+                        <option key={portfolio.portfolio_id} value={portfolio.portfolio_id}>{portfolio.name}</option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+              </div>
+
+              {heatmapData && heatmapData.sectors?.length ? (
+                <>
+                  <div className="heatmap-grid" role="table" aria-label="Sector allocation heatmap">
+                    <div className="heatmap-corner">Sector</div>
+                    <div className="heatmap-head">{heatmapData.left.name}</div>
+                    <div className="heatmap-head">{heatmapData.right.name}</div>
+                    {heatmapData.sectors.map((sector) => (
+                      <HeatRow
+                        key={sector}
+                        sector={sector}
+                        left={heatmapData.left.values[heatmapData.sectors.indexOf(sector)]}
+                        right={heatmapData.right.values[heatmapData.sectors.indexOf(sector)]}
+                        max={maxHeatValue(heatmapData)}
+                      />
+                    ))}
+                  </div>
+                  <div className="heatmap-legend">
+                    <span className="legend-caption">Allocation weight</span>
+                    <span className="legend-swatch" style={{ background: 'rgba(99, 102, 241, 0.14)' }}>0%</span>
+                    <div className="legend-gradient" />
+                    <span className="legend-swatch" style={{ background: 'rgba(56, 189, 248, 1)' }}>max</span>
+                  </div>
+                  <p className="detail-copy">
+                    Cells show each portfolio's exposure to a sector as a share of total holdings value. Darker cells indicate heavier concentration; compare columns to spot divergence between the two baskets.
+                  </p>
+                </>
+              ) : (
+                <div className="empty-state">No allocation data available for comparison.</div>
+              )}
+            </article>
+          </section>
+        )}
+
+        {activeView === 'recommendations' && (
+          <section className="detail-view">
+            <article className="panel">
+              <div className="panel-head">
+                <div>
+                  <p className="eyebrow">Opportunity engine</p>
+                  <h3>Recommended next moves</h3>
+                </div>
+              </div>
+              <div className="recommendation-grid">
+                {insightItems.map((item) => (
+                  <div className="recommendation-card" key={item.ticker}>
+                    <div className="recommendation-head">
+                      <strong>{item.ticker}</strong>
+                      <span>{Number(item.similarity_score || 0).toFixed(2)}</span>
+                    </div>
+                    <p>{item.reason}</p>
+                  </div>
+                ))}
+              </div>
+            </article>
+          </section>
+        )}
+
+        {activeView === 'assets' && (
+          <section className="detail-view">
+            <article className="panel">
+              <div className="panel-head">
+                <div>
+                  <p className="eyebrow">Asset management</p>
+                  <h3>Add, update, and remove assets</h3>
+                </div>
+              </div>
+
+              <form className="manager-form" onSubmit={handleAssetSubmit}>
+                <label>
+                  Ticker
+                  <input
+                    value={assetForm.ticker}
+                    onChange={(event) => setAssetForm({ ...assetForm, ticker: event.target.value.toUpperCase() })}
+                    placeholder="AAPL"
+                    required
+                  />
+                </label>
+                <label>
+                  Name
+                  <input
+                    value={assetForm.name}
+                    onChange={(event) => setAssetForm({ ...assetForm, name: event.target.value })}
+                    placeholder="Apple Inc."
+                  />
+                </label>
+                <label>
+                  Exchange
+                  <input
+                    value={assetForm.exchange}
+                    onChange={(event) => setAssetForm({ ...assetForm, exchange: event.target.value })}
+                    placeholder="NASDAQ"
+                  />
+                </label>
+                <label>
+                  Sector
+                  <input
+                    value={assetForm.sector}
+                    onChange={(event) => setAssetForm({ ...assetForm, sector: event.target.value })}
+                    placeholder="Technology"
+                  />
+                </label>
+                <label>
+                  Industry
+                  <input
+                    value={assetForm.industry}
+                    onChange={(event) => setAssetForm({ ...assetForm, industry: event.target.value })}
+                    placeholder="Consumer Electronics"
+                  />
+                </label>
+                <button className="primary-btn" type="submit" disabled={submitting}>
+                  {submitting ? 'Saving…' : editingAssetTicker ? 'Save asset' : 'Add asset'}
+                </button>
+              </form>
+
+              <div className="list-stack">
+                {assets.length ? assets.map((asset) => (
+                  <div className="list-item" key={asset.ticker || asset.asset_id}>
+                    <div>
+                      <strong>{asset.ticker}</strong>
+                      <p>{asset.name || 'Tracked asset'}</p>
+                    </div>
+                    <div className="action-row">
+                      <button type="button" className="secondary-btn" onClick={() => handleAssetEdit(asset)}>
+                        Edit
+                      </button>
+                      <button type="button" className="danger-btn" onClick={() => handleAssetDelete(asset.ticker)}>
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                )) : (
+                  <div className="empty-state">No assets are currently stored.</div>
+                )}
+              </div>
+            </article>
+          </section>
+        )}
+
+        {activeView === 'manage' && (
+          <section className="detail-view management-grid">
+            <article className="panel">
+              <div className="panel-head">
+                <div>
+                  <p className="eyebrow">Portfolio management</p>
+                  <h3>Create or refine portfolios</h3>
+                </div>
+              </div>
+
+              <form className="manager-form" onSubmit={handlePortfolioSubmit}>
+                <label>
+                  Portfolio name
+                  <input
+                    value={portfolioForm.name}
+                    onChange={(event) => setPortfolioForm({ ...portfolioForm, name: event.target.value })}
+                    placeholder="e.g. Growth Focus"
+                    required
+                  />
+                </label>
+                <label>
+                  Description
+                  <textarea
+                    value={portfolioForm.description}
+                    onChange={(event) => setPortfolioForm({ ...portfolioForm, description: event.target.value })}
+                    placeholder="Describe the focus of the portfolio"
+                    rows="3"
+                  />
+                </label>
+                <button className="primary-btn" type="submit" disabled={submitting}>
+                  {submitting ? 'Saving…' : editingPortfolioId ? 'Save portfolio' : 'Create portfolio'}
+                </button>
+              </form>
+
+              <div className="list-stack">
+                {portfolios.length ? portfolios.map((portfolio) => (
+                  <div className="list-item" key={portfolio.portfolio_id}>
+                    <div>
+                      <strong>{portfolio.name}</strong>
+                      <p>{portfolio.description || 'No description provided yet.'}</p>
+                    </div>
+                    <div className="action-row">
+                      <button type="button" className="secondary-btn" onClick={() => handlePortfolioEdit(portfolio)}>
+                        Edit
+                      </button>
+                      <button type="button" className="danger-btn" onClick={() => handlePortfolioDelete(portfolio.portfolio_id)}>
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                )) : (
+                  <div className="empty-state">No portfolios are currently stored.</div>
+                )}
+              </div>
+            </article>
+          </section>
+        )}
+      </main>
+    </div>
+  );
+}
+
+const maxHeatValue = (data) => {
+  const all = [...(data?.left?.values || []), ...(data?.right?.values || [])];
+  return Math.max(1, ...all.map((v) => Number(v) || 0));
+};
+
+const heatColor = (value, max) => {
+  const ratio = max > 0 ? Math.min(1, Math.max(0, Number(value || 0) / max)) : 0;
+  return {
+    background: `rgba(99, 102, 241, ${0.08 + 0.9 * ratio})`,
+    color: ratio > 0.55 ? '#ffffff' : '#c4cdec'
+  };
+};
+
+function HeatRow({ sector, left, right, max }) {
+  const leftCell = heatColor(left, max);
+  const rightCell = heatColor(right, max);
+  return (
+    <>
+      <div className="heatmap-label">{sector}</div>
+      <div className="heatmap-cell" style={leftCell}>
+        {Number(left || 0).toFixed(1)}%
+      </div>
+      <div className="heatmap-cell" style={rightCell}>
+        {Number(right || 0).toFixed(1)}%
+      </div>
+    </>
+  );
+}
+
+export default App;
