@@ -2,7 +2,8 @@ from fastapi import APIRouter
 from app.services.asset_service import (
     upsert_asset,
     list_assets,
-    get_asset
+    get_asset,
+    delete_asset,
 )
 
 router = APIRouter(prefix="/assets", tags=["Assets"])
@@ -18,4 +19,8 @@ def get_asset_by_ticker(ticker: str):
 @router.post("/{ticker}")
 def update_asset_route(ticker: str, data: dict):
     return upsert_asset(ticker, data)
+
+@router.delete("/{ticker}")
+def remove_asset(ticker: str):
+    return delete_asset(ticker)
 

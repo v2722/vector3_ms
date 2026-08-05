@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from app.routes import (
     asset_type_routes,
     asset_transaction_routes,
@@ -13,13 +14,22 @@ from app.routes import (
     ml_routes,
     recommender_routes,
     risk_routes,
-    optimization_routes
+    optimization_routes,
+    realtime_routes
 )
 
 app = FastAPI(
     title="Portfolio Manager API",
     description="REST API for managing financial portfolios using MySQL + yfinance",
     version="1.0.0"
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Register routes
@@ -36,6 +46,7 @@ app.include_router(ml_routes.router)
 app.include_router(recommender_routes.router)
 app.include_router(risk_routes.router)
 app.include_router(optimization_routes.router)
+app.include_router(realtime_routes.router)
 app.include_router(scalar_ui.router)
 
 @app.get("/")

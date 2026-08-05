@@ -137,7 +137,7 @@ def correlation_matrix(portfolio_id: int, db=None) -> dict:
     sql = """
     SELECT DISTINCT a.ticker
     FROM transaction t
-    JOIN asset a ON t.asset_id = a.id
+    JOIN asset a ON t.asset_id = a.asset_id
     WHERE t.portfolio_id = %s
     """
     cursor.execute(sql, (portfolio_id,))
