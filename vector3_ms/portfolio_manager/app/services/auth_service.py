@@ -34,15 +34,15 @@ def register_user(username: str, password: str, email: str = None) -> dict:
     db = get_db()
     cursor = db.cursor(dictionary=True)
 
-    cursor.execute("SELECT id FROM user WHERE username = %s", (username,))
+    cursor.execute("SELECT user_id FROM user WHERE username = %s", (username,))
     if cursor.fetchone():
         cursor.close()
         db.close()
         raise UserAlreadyExistsException(f"Username {username} already exists")
 
     hashed_pwd = hash_password(password)
-    sql = "INSERT INTO user (username, password, email, created_at) VALUES (%s, %s, %s, NOW())"
-    cursor.execute(sql, (username, hashed_pwd, email))
+    sql = "INSERT INTO user (name, username, password, email, created_at) VALUES (%s, %s, %s, %s, NOW())"
+    cursor.execute(sql, (username, username, hashed_pwd, email))
     db.commit()
     user_id = cursor.lastrowid
 
@@ -55,7 +55,7 @@ def login_user(username: str, password: str) -> dict:
     db = get_db()
     cursor = db.cursor(dictionary=True)
 
-    cursor.execute("SELECT id, username, password FROM user WHERE username = %s", (username,))
+    cursor.execute("SELECT user_id, username, password FROM user WHERE username = %s", (username,))
     user = cursor.fetchone()
 
     cursor.close()
@@ -64,14 +64,14 @@ def login_user(username: str, password: str) -> dict:
     if not user or not verify_password(password, user["password"]):
         raise UnauthorizedException("Invalid username or password")
 
-    token = create_access_token(user["id"], user["username"])
-    return {"access_token": token, "token_type": "bearer", "user_id": user["id"]}
+    token = create_access_token(user["user_id"], user["username"])
+    return {"access_token": token, "token_type": "bearer", "user_id": user["user_id"]}
 
 def get_user(user_id: int) -> dict:
     db = get_db()
     cursor = db.cursor(dictionary=True)
 
-    cursor.execute("SELECT id, username, email FROM user WHERE id = %s", (user_id,))
+    cursor.execute("SELECT user_id, username, email, name FROM user WHERE user_id = %s", (user_id,))
     user = cursor.fetchone()
 
     cursor.close()

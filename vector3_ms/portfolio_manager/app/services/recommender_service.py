@@ -561,7 +561,13 @@ def portfolio_gap_completion(portfolio_id: int, limit: int = 5, db=None) -> dict
         picks.sort(key=lambda x: x["momentum"], reverse=True)
         picks = picks[:limit]
 
+        momentum_values = [max(p["momentum"], 0) for p in picks]
+        max_momentum = max(momentum_values) if momentum_values else 1.0
+        if max_momentum <= 0:
+            max_momentum = 1.0
+
         for p in picks:
+            p["similarity_score"] = round(min(1.0, max(0.0, max(p["momentum"], 0) / max_momentum)), 4)
             p["reason"] = f"Adds exposure to {p['sector']}, a sector not currently in held set"
 
         return {
