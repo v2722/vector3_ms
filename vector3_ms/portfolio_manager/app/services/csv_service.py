@@ -61,10 +61,9 @@ def export_holdings_csv(portfolio_id: int) -> str:
     SELECT
         a.ticker, a.name,
         COALESCE(SUM(CASE WHEN t.type = 'BUY' THEN t.quantity ELSE -t.quantity END), 0) as quantity,
-        MAX(t.price) as last_price
+        COALESCE(MAX(t.price), 0) as last_price
     FROM asset a
-    LEFT JOIN transaction t ON a.id = t.asset_id
-    WHERE t.portfolio_id = %s
+    LEFT JOIN transaction t ON a.id = t.asset_id AND t.portfolio_id = %s
     GROUP BY a.id, a.ticker, a.name
     ORDER BY a.ticker
     """
@@ -73,7 +72,7 @@ def export_holdings_csv(portfolio_id: int) -> str:
     cursor.close()
     db.close()
 
-    df = pd.DataFrame(rows)
+    df = pd.DataFrame(rows) if rows else pd.DataFrame()
     return df.to_csv(index=False)
 
 def export_transactions_csv(portfolio_id: int) -> str:

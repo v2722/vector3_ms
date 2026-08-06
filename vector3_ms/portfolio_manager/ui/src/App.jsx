@@ -31,6 +31,9 @@ const navItems = [
   { key: 'risk', label: 'Risk' },
   { key: 'compare', label: 'Compare' },
   { key: 'recommendations', label: 'Recommendations' },
+  { key: 'ml', label: 'ML & Predictions' },
+  { key: 'optimize', label: 'Optimization' },
+  { key: 'transactions', label: 'Transactions' },
   { key: 'assets', label: 'Assets' },
   { key: 'manage', label: 'Portfolios' }
 ];
@@ -89,6 +92,20 @@ function App() {
   const [chatSending, setChatSending] = useState(false);
   const [transactions, setTransactions] = useState([]);
   const [transactionForm, setTransactionForm] = useState({ assetId: '', type: 'BUY', quantity: '', price: '' });
+
+  // ML & Predictions
+  const [predictionTicker, setPredictionTicker] = useState('AAPL');
+  const [predictionDays, setPredictionDays] = useState(7);
+  const [predictionMethod, setPredictionMethod] = useState('lstm');
+  const [predictions, setPredictions] = useState(null);
+  const [assetClassification, setAssetClassification] = useState(null);
+  const [classifyTicker, setClassifyTicker] = useState('AAPL');
+
+  // Optimization
+  const [efficientFrontier, setEfficientFrontier] = useState(null);
+  const [optimalAllocation, setOptimalAllocation] = useState(null);
+  const [riskParity, setRiskParity] = useState(null);
+  const [monteCarloResult, setMonteCarloResult] = useState(null);
 
   const loadData = async (showLoading = false) => {
     if (showLoading) setLoading(true);
@@ -264,6 +281,58 @@ function App() {
     }
   };
 
+  const loadTransactions = async () => {
+    if (!selectedPortfolio) return;
+    try {
+      const res = await axios.get(`${API}/transactions/${selectedPortfolio}`);
+      setTransactions(res.data || []);
+    } catch (err) {
+      console.error(err);
+      setTransactions([]);
+    }
+  };
+
+  const loadPredictions = async () => {
+    if (!predictionTicker) return;
+    try {
+      const endpoint = `${API}/ml/predict/${predictionTicker}/${predictionMethod}/${predictionDays}`;
+      const res = await axios.get(endpoint);
+      setPredictions(res.data);
+    } catch (err) {
+      console.error(err);
+      setPredictions(null);
+    }
+  };
+
+  const loadAssetClassification = async () => {
+    if (!classifyTicker) return;
+    try {
+      const res = await axios.get(`${API}/ml/classify/${classifyTicker}`);
+      setAssetClassification(res.data);
+    } catch (err) {
+      console.error(err);
+      setAssetClassification(null);
+    }
+  };
+
+  const loadOptimization = async () => {
+    if (!selectedPortfolio) return;
+    try {
+      const [frontierRes, optimalRes, riskParityRes, monteCarloRes] = await Promise.all([
+        axios.get(`${API}/optimize/frontier/${selectedPortfolio}`).catch(() => null),
+        axios.get(`${API}/optimize/max-sharpe/${selectedPortfolio}`).catch(() => null),
+        axios.get(`${API}/optimize/risk-parity/${selectedPortfolio}`).catch(() => null),
+        axios.get(`${API}/optimize/monte-carlo/${selectedPortfolio}`).catch(() => null)
+      ]);
+      setEfficientFrontier(frontierRes?.data || null);
+      setOptimalAllocation(optimalRes?.data || null);
+      setRiskParity(riskParityRes?.data || null);
+      setMonteCarloResult(monteCarloRes?.data || null);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   useEffect(() => {
     if (token) {
       loadData(true);
@@ -274,7 +343,27 @@ function App() {
     if (!selectedPortfolio) return;
     loadInsights(selectedPortfolio);
     loadHoldings(selectedPortfolio);
+    loadTransactions();
   }, [selectedPortfolio]);
+
+  useEffect(() => {
+    if (activeView === 'ml') {
+      loadPredictions();
+      loadAssetClassification();
+    }
+  }, [activeView, predictionTicker, predictionDays, predictionMethod, classifyTicker]);
+
+  useEffect(() => {
+    if (activeView === 'optimize') {
+      loadOptimization();
+    }
+  }, [activeView, selectedPortfolio]);
+
+  useEffect(() => {
+    if (activeView === 'transactions') {
+      loadTransactions();
+    }
+  }, [activeView, selectedPortfolio]);
 
   useEffect(() => {
     if (!portfolios.length) return;
@@ -1028,11 +1117,176 @@ function App() {
                   <div className="recommendation-card" key={item.ticker}>
                     <div className="recommendation-head">
                       <strong>{item.ticker}</strong>
-                      <span>{Number(item.similarity_score || 0).toFixed(2)}</span>
+                      <span>{Number(item.similarity_score || item.momentum || 0).toFixed(2)}</span>
                     </div>
                     <p>{item.reason}</p>
                   </div>
                 ))}
+              </div>
+            </article>
+          </section>
+        )}
+
+        {activeView === 'ml' && (
+          <section className="detail-view management-grid">
+            <article className="panel">
+              <div className="panel-head">
+                <div>
+                  <p className="eyebrow">Machine learning</p>
+                  <h3>Price predictions & classification</h3>
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '2rem' }}>
+                <h4 style={{ marginBottom: '1rem' }}>Price Predictions</h4>
+                <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+                  <label style={{ flex: '1', minWidth: '200px' }}>
+                    Ticker
+                    <input
+                      value={predictionTicker}
+                      onChange={(e) => setPredictionTicker(e.target.value.toUpperCase())}
+                      placeholder="AAPL"
+                    />
+                  </label>
+                  <label style={{ flex: '1', minWidth: '200px' }}>
+                    Days
+                    <input
+                      type="number"
+                      value={predictionDays}
+                      onChange={(e) => setPredictionDays(parseInt(e.target.value) || 7)}
+                      min="1"
+                      max="30"
+                    />
+                  </label>
+                  <label style={{ flex: '1', minWidth: '200px' }}>
+                    Method
+                    <select value={predictionMethod} onChange={(e) => setPredictionMethod(e.target.value)}>
+                      <option value="lstm">LSTM</option>
+                      <option value="prophet">Prophet</option>
+                      <option value="linear">Linear</option>
+                      <option value="ensemble">Ensemble</option>
+                    </select>
+                  </label>
+                </div>
+                <button className="primary-btn" onClick={loadPredictions} style={{ marginBottom: '1rem' }}>Get Prediction</button>
+
+                {predictions && (
+                  <div style={{ padding: '1rem', background: 'rgba(99, 102, 241, 0.1)', borderRadius: '0.5rem' }}>
+                    <p><strong>Ticker:</strong> {predictions.ticker}</p>
+                    <p><strong>Method:</strong> {predictions.method}</p>
+                    <p><strong>Current Price:</strong> ${Number(predictions.current_price || 0).toFixed(2)}</p>
+                    <p><strong>Predicted Price (Day {predictionDays}):</strong> ${Number(predictions.predicted_price || 0).toFixed(2)}</p>
+                    {predictions.confidence && <p><strong>Confidence:</strong> {Number(predictions.confidence || 0).toFixed(2)}</p>}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <h4 style={{ marginBottom: '1rem' }}>Asset Classification</h4>
+                <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
+                  <label style={{ flex: '1', minWidth: '200px' }}>
+                    Ticker
+                    <input
+                      value={classifyTicker}
+                      onChange={(e) => setClassifyTicker(e.target.value.toUpperCase())}
+                      placeholder="AAPL"
+                    />
+                  </label>
+                </div>
+                <button className="primary-btn" onClick={loadAssetClassification} style={{ marginBottom: '1rem' }}>Classify Asset</button>
+
+                {assetClassification && (
+                  <div style={{ padding: '1rem', background: 'rgba(99, 102, 241, 0.1)', borderRadius: '0.5rem' }}>
+                    <p><strong>Ticker:</strong> {assetClassification.ticker}</p>
+                    <p><strong>Risk Class:</strong> {assetClassification.risk_class}</p>
+                    <p><strong>Income Class:</strong> {assetClassification.income_class}</p>
+                  </div>
+                )}
+              </div>
+            </article>
+          </section>
+        )}
+
+        {activeView === 'optimize' && (
+          <section className="detail-view management-grid">
+            <article className="panel">
+              <div className="panel-head">
+                <div>
+                  <p className="eyebrow">Portfolio optimization</p>
+                  <h3>Find efficient allocations</h3>
+                </div>
+              </div>
+
+              <button className="primary-btn" onClick={loadOptimization} style={{ marginBottom: '2rem' }}>Load Optimization Results</button>
+
+              {optimalAllocation && (
+                <div style={{ marginBottom: '2rem', padding: '1rem', background: 'rgba(99, 102, 241, 0.1)', borderRadius: '0.5rem' }}>
+                  <h4 style={{ marginBottom: '1rem' }}>Max Sharpe Ratio Portfolio</h4>
+                  <p><strong>Sharpe Ratio:</strong> {Number(optimalAllocation.sharpe_ratio || 0).toFixed(4)}</p>
+                  <p><strong>Expected Return:</strong> {Number(optimalAllocation.expected_return || 0).toFixed(4)}</p>
+                  <p><strong>Volatility:</strong> {Number(optimalAllocation.volatility || 0).toFixed(4)}</p>
+                  {optimalAllocation.allocation && (
+                    <div style={{ marginTop: '1rem' }}>
+                      <h5>Allocation:</h5>
+                      {Object.entries(optimalAllocation.allocation).map(([ticker, weight]) => (
+                        <p key={ticker}>{ticker}: {(Number(weight) * 100).toFixed(1)}%</p>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {riskParity && (
+                <div style={{ marginBottom: '2rem', padding: '1rem', background: 'rgba(99, 102, 241, 0.1)', borderRadius: '0.5rem' }}>
+                  <h4 style={{ marginBottom: '1rem' }}>Risk Parity Portfolio</h4>
+                  <p><strong>Sharpe Ratio:</strong> {Number(riskParity.sharpe_ratio || 0).toFixed(4)}</p>
+                  {riskParity.allocation && (
+                    <div style={{ marginTop: '1rem' }}>
+                      <h5>Allocation:</h5>
+                      {Object.entries(riskParity.allocation).map(([ticker, weight]) => (
+                        <p key={ticker}>{ticker}: {(Number(weight) * 100).toFixed(1)}%</p>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {monteCarloResult && (
+                <div style={{ padding: '1rem', background: 'rgba(99, 102, 241, 0.1)', borderRadius: '0.5rem' }}>
+                  <h4 style={{ marginBottom: '1rem' }}>Monte Carlo Simulation</h4>
+                  <p><strong>Expected Value (1 year):</strong> ${Number(monteCarloResult.expected_value || 0).toFixed(2)}</p>
+                  <p><strong>Value at Risk (95%):</strong> ${Number(monteCarloResult.var_95 || 0).toFixed(2)}</p>
+                  <p><strong>Value at Risk (99%):</strong> ${Number(monteCarloResult.var_99 || 0).toFixed(2)}</p>
+                </div>
+              )}
+            </article>
+          </section>
+        )}
+
+        {activeView === 'transactions' && (
+          <section className="detail-view">
+            <article className="panel">
+              <div className="panel-head">
+                <div>
+                  <p className="eyebrow">Transaction history</p>
+                  <h3>View all portfolio transactions</h3>
+                </div>
+              </div>
+
+              <div className="list-stack">
+                {transactions.length ? transactions.map((tx, idx) => (
+                  <div className="list-item" key={idx}>
+                    <div>
+                      <strong>{tx.ticker}</strong>
+                      <p>{tx.type} {tx.quantity} @ ${Number(tx.price || 0).toFixed(2)} on {tx.transaction_date || 'N/A'}</p>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <p style={{ fontSize: '0.9rem', opacity: 0.7 }}>${(tx.quantity * tx.price).toFixed(2)}</p>
+                    </div>
+                  </div>
+                )) : (
+                  <div className="empty-state">No transactions found for this portfolio.</div>
+                )}
               </div>
             </article>
           </section>

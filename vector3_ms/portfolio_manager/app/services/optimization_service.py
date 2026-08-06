@@ -12,7 +12,7 @@ def efficient_frontier(portfolio_id: int, num_portfolios: int = 10000, db=None) 
     sql = """
     SELECT DISTINCT a.ticker
     FROM transaction t
-    JOIN asset a ON t.asset_id = a.id
+    JOIN asset a ON t.asset_id = a.asset_id
     WHERE t.portfolio_id = %s
     """
     cursor.execute(sql, (portfolio_id,))
@@ -40,6 +40,8 @@ def efficient_frontier(portfolio_id: int, num_portfolios: int = 10000, db=None) 
 
     cursor.close()
     db.close()
+
+    tickers = [t for t in tickers if t in prices_dict]
 
     common_length = min(len(p) for p in prices_dict.values()) if prices_dict else 0
     if common_length < 2:
@@ -111,7 +113,7 @@ def risk_parity(portfolio_id: int, db=None) -> dict:
     sql = """
     SELECT DISTINCT a.ticker, a.volatility
     FROM transaction t
-    JOIN asset a ON t.asset_id = a.id
+    JOIN asset a ON t.asset_id = a.asset_id
     WHERE t.portfolio_id = %s
     """
     cursor.execute(sql, (portfolio_id,))
