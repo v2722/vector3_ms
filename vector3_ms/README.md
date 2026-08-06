@@ -8,27 +8,6 @@ This project runs entirely on localhost — no cloud, no external hosting.
 
 ---
 
-## 🎉 Recent Updates
-
-**Latest Release - All Features Now Working!**
-
-✅ **Fixed Critical Issues**
-- Recommendations display now showing momentum scores correctly
-- Database schema properly initialized with all required tables
-- CSV export LEFT JOIN logic fixed for accurate holdings data
-
-✨ **New Features Added**
-- **ML & Predictions Tab**: LSTM, Prophet, Linear, and Ensemble price predictions + asset classification
-- **Portfolio Optimization Tab**: Efficient frontier, Max Sharpe ratio, Risk Parity, Monte Carlo simulation
-- **Transactions Tab**: Complete transaction history view with filtering by portfolio
-
-📊 **Quality Assurance**
-- **100% E2E Test Pass Rate** (19/19 tests passing)
-- All 47+ API endpoints fully functional and tested
-- Both backend and frontend production-ready
-
----
-
 ## Table of Contents
 
 - [Overview](#overview)
