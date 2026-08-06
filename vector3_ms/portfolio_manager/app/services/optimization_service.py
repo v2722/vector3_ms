@@ -111,22 +111,47 @@ def risk_parity(portfolio_id: int, db=None) -> dict:
     cursor = db.cursor(dictionary=True)
 
     sql = """
-    SELECT DISTINCT a.ticker, a.volatility
+    SELECT DISTINCT a.ticker
     FROM transaction t
     JOIN asset a ON t.asset_id = a.asset_id
     WHERE t.portfolio_id = %s
     """
     cursor.execute(sql, (portfolio_id,))
     assets = cursor.fetchall()
-    cursor.close()
-    db.close()
 
     if len(assets) < 2:
+        cursor.close()
+        db.close()
         return {"error": "Need at least 2 assets"}
 
-    volatilities = [a["volatility"] or 0.15 for a in assets]
+    volatilities = []
+    for asset in assets:
+        ticker = asset["ticker"]
+        sql = """
+        SELECT ph.close
+        FROM price_history ph
+        JOIN asset a ON ph.asset_id = a.asset_id
+        WHERE a.ticker = %s
+        ORDER BY ph.date DESC
+        LIMIT 252
+        """
+        cursor.execute(sql, (ticker,))
+        rows = cursor.fetchall()
+
+        if len(rows) < 2:
+            volatilities.append(0.15)
+            continue
+
+        prices = [row["close"] for row in reversed(rows)]
+        returns = np.diff(prices) / np.array(prices[:-1])
+        volatility = float(np.std(returns) * np.sqrt(252))
+        volatilities.append(volatility)
+
     inv_volatilities = 1 / np.array(volatilities)
     weights = inv_volatilities / np.sum(inv_volatilities)
+
+    cursor.close()
+    db.close()
 
     return {
         "portfolio_id": portfolio_id,
@@ -151,9 +176,9 @@ def monte_carlo_simulation(portfolio_id: int, days: int = 252, num_simulations: 
     initial_value = result["portfolio_value"] if result["portfolio_value"] else 10000
 
     sql = """
-    SELECT DISTINCT a.ticker, COALESCE(a.volatility, 0.15) as volatility
+    SELECT DISTINCT a.ticker
     FROM transaction t
-    JOIN asset a ON t.asset_id = a.id
+    JOIN asset a ON t.asset_id = a.asset_id
     WHERE t.portfolio_id = %s
     """
     cursor.execute(sql, (portfolio_id,))
@@ -164,7 +189,30 @@ def monte_carlo_simulation(portfolio_id: int, days: int = 252, num_simulations: 
         db.close()
         return {"error": "Portfolio has no assets"}
 
-    avg_volatility = np.mean([a["volatility"] for a in assets])
+    volatilities = []
+    for asset in assets:
+        ticker = asset["ticker"]
+        sql = """
+        SELECT ph.close
+        FROM price_history ph
+        JOIN asset a ON ph.asset_id = a.asset_id
+        WHERE a.ticker = %s
+        ORDER BY ph.date DESC
+        LIMIT 252
+        """
+        cursor.execute(sql, (ticker,))
+        rows = cursor.fetchall()
+
+        if len(rows) < 2:
+            volatilities.append(0.15)
+            continue
+
+        prices = [row["close"] for row in reversed(rows)]
+        returns = np.diff(prices) / np.array(prices[:-1])
+        volatility = float(np.std(returns) * np.sqrt(252))
+        volatilities.append(volatility)
+
+    avg_volatility = np.mean(volatilities)
     cursor.close()
     db.close()
 

@@ -295,7 +295,7 @@ function App() {
   const loadPredictions = async () => {
     if (!predictionTicker) return;
     try {
-      const endpoint = `${API}/ml/predict/${predictionTicker}/${predictionMethod}/${predictionDays}`;
+      const endpoint = `${API}/ml/predict/${predictionTicker}?method=${predictionMethod}&days=${predictionDays}`;
       const res = await axios.get(endpoint);
       setPredictions(res.data);
     } catch (err) {
@@ -320,7 +320,7 @@ function App() {
     try {
       const [frontierRes, optimalRes, riskParityRes, monteCarloRes] = await Promise.all([
         axios.get(`${API}/optimize/frontier/${selectedPortfolio}`).catch(() => null),
-        axios.get(`${API}/optimize/max-sharpe/${selectedPortfolio}`).catch(() => null),
+        axios.get(`${API}/optimize/optimal/${selectedPortfolio}`).catch(() => null),
         axios.get(`${API}/optimize/risk-parity/${selectedPortfolio}`).catch(() => null),
         axios.get(`${API}/optimize/monte-carlo/${selectedPortfolio}`).catch(() => null)
       ]);
@@ -819,7 +819,6 @@ function App() {
                 <div className="portfolio-summary">
                   <div>
                     <h4>{selectedPortfolioData?.description || 'A focused portfolio view with actionable insights.'}</h4>
-                    <p>User name: {selectedPortfolioData?.user_name || '—'} · Every section below is linked to the live backend, making the dashboard fully data-aware and ready for real portfolio operations.</p>
                   </div>
                   <div className="mini-stats">
                     <div><span>Portfolios</span><strong>{portfolios.length}</strong></div>
@@ -1170,13 +1169,26 @@ function App() {
                 </div>
                 <button className="primary-btn" onClick={loadPredictions} style={{ marginBottom: '1rem' }}>Get Prediction</button>
 
-                {predictions && (
+                {predictions && predictions.predictions && predictions.predictions.length > 0 && (
                   <div style={{ padding: '1rem', background: 'rgba(99, 102, 241, 0.1)', borderRadius: '0.5rem' }}>
                     <p><strong>Ticker:</strong> {predictions.ticker}</p>
                     <p><strong>Method:</strong> {predictions.method}</p>
                     <p><strong>Current Price:</strong> ${Number(predictions.current_price || 0).toFixed(2)}</p>
-                    <p><strong>Predicted Price (Day {predictionDays}):</strong> ${Number(predictions.predicted_price || 0).toFixed(2)}</p>
-                    {predictions.confidence && <p><strong>Confidence:</strong> {Number(predictions.confidence || 0).toFixed(2)}</p>}
+                    <p><strong>Predicted Price (Day {predictionDays}):</strong> ${Number(predictions.predictions[predictions.predictions.length - 1].predicted_price || 0).toFixed(2)}</p>
+                    <p><strong>Confidence:</strong> {predictions.predictions[predictions.predictions.length - 1].confidence_level || 'N/A'}</p>
+                    <p style={{ marginTop: '0.75rem', fontStyle: 'italic' }}>
+                      {(() => {
+                        const method = predictions.method || 'unknown';
+                        const ticker = predictions.ticker || 'the selected asset';
+                        const days = predictionDays;
+                        const predPrice = predictions.predictions[predictions.predictions.length - 1]?.predicted_price || 0;
+                        const currentPrice = predictions.current_price || 0;
+                        const change = ((predPrice - currentPrice) / currentPrice * 100).toFixed(2);
+                        const direction = predPrice >= currentPrice ? 'upward' : 'downward';
+                        const modelLabel = method.includes('lstm') ? 'LSTM neural network' : method.includes('prophet') ? 'Prophet seasonal model' : method.includes('linear') ? 'linear regression' : method.includes('ensemble') ? 'ensemble of all models' : method;
+                        return `Based on the ${modelLabel} forecast for ${ticker} over ${days} day${days > 1 ? 's' : ''}, the predicted price is $${predPrice.toFixed(2)}, suggesting a ${direction} trend of ${change}% from the current price of $${currentPrice.toFixed(2)}.`;
+                      })()}
+                    </p>
                   </div>
                 )}
               </div>
@@ -1222,13 +1234,13 @@ function App() {
               {optimalAllocation && (
                 <div style={{ marginBottom: '2rem', padding: '1rem', background: 'rgba(99, 102, 241, 0.1)', borderRadius: '0.5rem' }}>
                   <h4 style={{ marginBottom: '1rem' }}>Max Sharpe Ratio Portfolio</h4>
-                  <p><strong>Sharpe Ratio:</strong> {Number(optimalAllocation.sharpe_ratio || 0).toFixed(4)}</p>
+                  <p><strong>Sharpe Ratio:</strong> {Number(optimalAllocation.expected_sharpe_ratio || 0).toFixed(4)}</p>
                   <p><strong>Expected Return:</strong> {Number(optimalAllocation.expected_return || 0).toFixed(4)}</p>
-                  <p><strong>Volatility:</strong> {Number(optimalAllocation.volatility || 0).toFixed(4)}</p>
-                  {optimalAllocation.allocation && (
+                  <p><strong>Volatility:</strong> {Number(optimalAllocation.expected_volatility || 0).toFixed(4)}</p>
+                  {optimalAllocation.optimal_weights && (
                     <div style={{ marginTop: '1rem' }}>
                       <h5>Allocation:</h5>
-                      {Object.entries(optimalAllocation.allocation).map(([ticker, weight]) => (
+                      {Object.entries(optimalAllocation.optimal_weights).map(([ticker, weight]) => (
                         <p key={ticker}>{ticker}: {(Number(weight) * 100).toFixed(1)}%</p>
                       ))}
                     </div>
@@ -1236,29 +1248,31 @@ function App() {
                 </div>
               )}
 
-              {riskParity && (
-                <div style={{ marginBottom: '2rem', padding: '1rem', background: 'rgba(99, 102, 241, 0.1)', borderRadius: '0.5rem' }}>
-                  <h4 style={{ marginBottom: '1rem' }}>Risk Parity Portfolio</h4>
-                  <p><strong>Sharpe Ratio:</strong> {Number(riskParity.sharpe_ratio || 0).toFixed(4)}</p>
-                  {riskParity.allocation && (
-                    <div style={{ marginTop: '1rem' }}>
-                      <h5>Allocation:</h5>
-                      {Object.entries(riskParity.allocation).map(([ticker, weight]) => (
-                        <p key={ticker}>{ticker}: {(Number(weight) * 100).toFixed(1)}%</p>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
+                {riskParity && (
+                  <div style={{ marginBottom: '2rem', padding: '1rem', background: 'rgba(99, 102, 241, 0.1)', borderRadius: '0.5rem' }}>
+                    <h4 style={{ marginBottom: '1rem' }}>Risk Parity Portfolio</h4>
+                    {riskParity.weights && (
+                      <div style={{ marginTop: '1rem' }}>
+                        <h5>Allocation:</h5>
+                        {Object.entries(riskParity.weights).map(([ticker, weight]) => (
+                          <p key={ticker}>{ticker}: {(Number(weight) * 100).toFixed(1)}%</p>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
 
-              {monteCarloResult && (
-                <div style={{ padding: '1rem', background: 'rgba(99, 102, 241, 0.1)', borderRadius: '0.5rem' }}>
-                  <h4 style={{ marginBottom: '1rem' }}>Monte Carlo Simulation</h4>
-                  <p><strong>Expected Value (1 year):</strong> ${Number(monteCarloResult.expected_value || 0).toFixed(2)}</p>
-                  <p><strong>Value at Risk (95%):</strong> ${Number(monteCarloResult.var_95 || 0).toFixed(2)}</p>
-                  <p><strong>Value at Risk (99%):</strong> ${Number(monteCarloResult.var_99 || 0).toFixed(2)}</p>
-                </div>
-              )}
+                {monteCarloResult && (
+                  <div style={{ padding: '1rem', background: 'rgba(99, 102, 241, 0.1)', borderRadius: '0.5rem' }}>
+                    <h4 style={{ marginBottom: '1rem' }}>Monte Carlo Simulation</h4>
+                    <p><strong>Initial Value:</strong> ${Number(monteCarloResult.initial_value || 0).toFixed(2)}</p>
+                    <p><strong>Expected Final Value:</strong> ${Number(monteCarloResult.expected_final_value || 0).toFixed(2)}</p>
+                    <p><strong>Min Final Value:</strong> ${Number(monteCarloResult.min_final_value || 0).toFixed(2)}</p>
+                    <p><strong>Max Final Value:</strong> ${Number(monteCarloResult.max_final_value || 0).toFixed(2)}</p>
+                    <p><strong>5th Percentile:</strong> ${Number(monteCarloResult.percentile_5 || 0).toFixed(2)}</p>
+                    <p><strong>95th Percentile:</strong> ${Number(monteCarloResult.percentile_95 || 0).toFixed(2)}</p>
+                  </div>
+                )}
             </article>
           </section>
         )}
