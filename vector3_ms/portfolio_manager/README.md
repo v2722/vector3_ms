@@ -370,12 +370,15 @@ API available at:
 
 - `GET /portfolios/`
 - `POST /portfolios/`
+- `PUT /portfolios/{portfolio_id}` — update name/description
+- `DELETE /portfolios/{portfolio_id}` — delete (cascades transactions/holdings)
 
 ### Assets
 
 - `GET /assets/`
 - `GET /assets/{ticker}`
 - `POST /assets/{ticker}`
+- `DELETE /assets/{ticker}`
 
 ### Prices (Yahoo Finance + DB)
 
@@ -386,6 +389,7 @@ API available at:
 
 - `GET /transactions/{portfolio_id}`
 - `POST /transactions/{portfolio_id}`
+- `DELETE /transactions/{portfolio_id}/{transaction_id}` — remove a holding
 
 ### Asset Types
 

@@ -1,5 +1,6 @@
 from app.database.connection import get_db
 from app.services.data_provider import fetch_asset_info
+from app.utils.exceptions import not_found
 
 
 def list_assets():
@@ -68,8 +69,14 @@ def upsert_asset(ticker: str, data=None):
 def delete_asset(ticker: str):
     db = get_db()
     cursor = db.cursor(dictionary=True)
+    cursor.execute("SELECT asset_id FROM asset WHERE ticker = %s", (ticker,))
+    if not cursor.fetchone():
+        cursor.close()
+        db.close()
+        not_found(f"Asset {ticker} not found")
+
     cursor.execute("DELETE FROM asset WHERE ticker = %s", (ticker,))
     db.commit()
     cursor.close()
     db.close()
-    return {"message": "Asset deleted", "ticker": ticker}
+    return {"message": "Asset deleted"}

@@ -1,5 +1,9 @@
 from fastapi import APIRouter
-from app.services.transaction_service import list_transactions, add_transaction, delete_transaction
+from app.services.transaction_service import (
+    list_transactions,
+    add_transaction,
+    delete_transaction
+)
 
 router = APIRouter(prefix="/transactions", tags=["Transactions"])
 
@@ -11,6 +15,6 @@ def get_transactions(portfolio_id: int):
 def add_tx(portfolio_id: int, data: dict):
     return add_transaction(portfolio_id, data)
 
-@router.delete("/{transaction_id}")
-def remove_tx(transaction_id: int):
-    return delete_transaction(transaction_id)
+@router.delete("/{portfolio_id}/{transaction_id}")
+def remove_tx(portfolio_id: int, transaction_id: int):
+    return delete_transaction(portfolio_id, transaction_id)

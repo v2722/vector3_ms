@@ -1,4 +1,5 @@
 from app.database.connection import get_db
+from app.utils.exceptions import not_found
 
 def list_transactions(portfolio_id: int):
     db = get_db()
@@ -33,11 +34,20 @@ def add_transaction(portfolio_id: int, data: dict):
     return {"message": "Transaction added"}
 
 
-def delete_transaction(transaction_id: int):
+def delete_transaction(portfolio_id: int, transaction_id: int):
     db = get_db()
     cursor = db.cursor(dictionary=True)
+    cursor.execute(
+        "SELECT transaction_id FROM transaction WHERE transaction_id = %s AND portfolio_id = %s",
+        (transaction_id, portfolio_id)
+    )
+    if not cursor.fetchone():
+        cursor.close()
+        db.close()
+        not_found(f"Transaction {transaction_id} not found in portfolio {portfolio_id}")
+
     cursor.execute("DELETE FROM transaction WHERE transaction_id = %s", (transaction_id,))
     db.commit()
     cursor.close()
     db.close()
-    return {"message": "Transaction deleted", "transaction_id": transaction_id}
+    return {"message": "Transaction deleted"}

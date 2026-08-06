@@ -1,4 +1,5 @@
 from app.database.connection import get_db
+from app.utils.exceptions import not_found, bad_request
 
 def list_portfolios():
     db = get_db()
@@ -24,11 +25,17 @@ def create_portfolio(data):
     portfolio_id = cursor.lastrowid
     cursor.close()
     db.close()
-    return {"message": "Portfolio created", "portfolio_id": portfolio_id}
+    return {"message": "Portfolio created"}
 
 def update_portfolio(portfolio_id: int, data: dict):
     db = get_db()
     cursor = db.cursor(dictionary=True)
+    cursor.execute("SELECT portfolio_id FROM portfolio WHERE portfolio_id = %s", (portfolio_id,))
+    if not cursor.fetchone():
+        cursor.close()
+        db.close()
+        not_found(f"Portfolio {portfolio_id} not found")
+
     name = data.get("name")
     description = data.get("description")
     user_id = data.get("user_id")
@@ -48,7 +55,7 @@ def update_portfolio(portfolio_id: int, data: dict):
     if not updates:
         cursor.close()
         db.close()
-        return {"error": "Nothing to update"}
+        bad_request("Nothing to update")
 
     sql = f"UPDATE portfolio SET {', '.join(updates)} WHERE portfolio_id = %s"
     params.append(portfolio_id)
@@ -56,13 +63,19 @@ def update_portfolio(portfolio_id: int, data: dict):
     db.commit()
     cursor.close()
     db.close()
-    return {"message": "Portfolio updated", "portfolio_id": portfolio_id}
+    return {"message": "Portfolio updated"}
 
 def delete_portfolio(portfolio_id: int):
     db = get_db()
     cursor = db.cursor(dictionary=True)
+    cursor.execute("SELECT portfolio_id FROM portfolio WHERE portfolio_id = %s", (portfolio_id,))
+    if not cursor.fetchone():
+        cursor.close()
+        db.close()
+        not_found(f"Portfolio {portfolio_id} not found")
+
     cursor.execute("DELETE FROM portfolio WHERE portfolio_id = %s", (portfolio_id,))
     db.commit()
     cursor.close()
     db.close()
-    return {"message": "Portfolio deleted", "portfolio_id": portfolio_id}
+    return {"message": "Portfolio deleted"}

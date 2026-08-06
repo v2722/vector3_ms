@@ -87,6 +87,8 @@ function App() {
   ]);
   const [chatInput, setChatInput] = useState('');
   const [chatSending, setChatSending] = useState(false);
+  const [transactions, setTransactions] = useState([]);
+  const [transactionForm, setTransactionForm] = useState({ assetId: '', type: 'BUY', quantity: '', price: '' });
 
   const loadData = async (showLoading = false) => {
     if (showLoading) setLoading(true);
@@ -184,6 +186,15 @@ function App() {
     setAuthForm({ username: '', password: '', email: '' });
   };
 
+  const loadHoldings = async (portfolioId) => {
+    if (!portfolioId) return;
+    try {
+      const res = await axios.get(`${API}/transactions/${portfolioId}`);
+      setTransactions(res.data || []);
+    } catch (err) {
+      console.error(err);
+    }
+  };
   const loadInsights = async (portfolioId) => {
     if (!portfolioId) return;
     try {
@@ -262,6 +273,7 @@ function App() {
   useEffect(() => {
     if (!selectedPortfolio) return;
     loadInsights(selectedPortfolio);
+    loadHoldings(selectedPortfolio);
   }, [selectedPortfolio]);
 
   useEffect(() => {
@@ -279,7 +291,7 @@ function App() {
   const refreshDashboard = async () => {
     if (!selectedPortfolio) return;
     setRefreshing(true);
-    await Promise.all([loadInsights(selectedPortfolio), loadData(), loadComparison()]);
+    await Promise.all([loadInsights(selectedPortfolio), loadHoldings(selectedPortfolio), loadData(), loadComparison()]);
     setRefreshing(false);
   };
 
@@ -435,6 +447,42 @@ function App() {
       setChatMessages((current) => [...current, { role: 'bot', text: 'The chat service is temporarily unavailable.' }]);
     } finally {
       setChatSending(false);
+    }
+  };
+
+  const handleTransactionSubmit = async (event) => {
+    event.preventDefault();
+    if (!selectedPortfolio || !transactionForm.assetId) return;
+
+    setSubmitting(true);
+    try {
+      await axios.post(`${API}/transactions/${selectedPortfolio}`, {
+        asset_id: Number(transactionForm.assetId),
+        type: transactionForm.type,
+        quantity: Number(transactionForm.quantity),
+        price: Number(transactionForm.price)
+      });
+      setTransactionForm({ assetId: '', type: 'BUY', quantity: '', price: '' });
+      setError('');
+      await loadHoldings(selectedPortfolio);
+      setActiveView('holdings');
+    } catch (err) {
+      console.error(err);
+      setError('The transaction could not be added.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleTransactionDelete = async (transactionId) => {
+    if (!selectedPortfolio) return;
+    if (!window.confirm('Remove this transaction from the portfolio?')) return;
+    try {
+      await axios.delete(`${API}/transactions/${selectedPortfolio}/${transactionId}`);
+      await loadHoldings(selectedPortfolio);
+    } catch (err) {
+      console.error(err);
+      setError('The transaction could not be removed.');
     }
   };
 
@@ -786,7 +834,7 @@ function App() {
               <div className="panel-head">
                 <div>
                   <p className="eyebrow">Holdings</p>
-                  <h3>Current positions</h3>
+                  <h3>{selectedPortfolioData?.name || 'Selected portfolio'} — transactions</h3>
                 </div>
               </div>
               <div className="asset-table">
@@ -801,6 +849,82 @@ function App() {
                   </div>
                 )) : (
                   <div className="empty-state">No holdings available yet.</div>
+                )}
+              </div>
+
+              <form className="manager-form" onSubmit={handleTransactionSubmit}>
+                <label>
+                  Asset
+                  <select
+                    value={transactionForm.assetId}
+                    onChange={(event) => setTransactionForm({ ...transactionForm, assetId: event.target.value })}
+                    required
+                  >
+                    <option value="">Select an asset</option>
+                    {assets.map((asset) => (
+                      <option key={asset.asset_id} value={asset.asset_id}>
+                        {asset.ticker} — {asset.name || 'Tracked asset'}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Type
+                  <select
+                    value={transactionForm.type}
+                    onChange={(event) => setTransactionForm({ ...transactionForm, type: event.target.value })}
+                  >
+                    <option value="BUY">BUY</option>
+                    <option value="SELL">SELL</option>
+                  </select>
+                </label>
+                <label>
+                  Quantity
+                  <input
+                    type="number"
+                    step="any"
+                    min="0"
+                    value={transactionForm.quantity}
+                    onChange={(event) => setTransactionForm({ ...transactionForm, quantity: event.target.value })}
+                    placeholder="e.g. 10"
+                    required
+                  />
+                </label>
+                <label>
+                  Price
+                  <input
+                    type="number"
+                    step="any"
+                    min="0"
+                    value={transactionForm.price}
+                    onChange={(event) => setTransactionForm({ ...transactionForm, price: event.target.value })}
+                    placeholder="e.g. 182.50"
+                    required
+                  />
+                </label>
+                <button className="primary-btn" type="submit" disabled={submitting || !selectedPortfolio}>
+                  {submitting ? 'Saving…' : 'Add transaction'}
+                </button>
+              </form>
+
+              <div className="list-stack">
+                {transactions.length ? transactions.map((tx) => {
+                  const asset = assets.find((a) => String(a.asset_id) === String(tx.asset_id));
+                  return (
+                    <div className="list-item" key={tx.transaction_id}>
+                      <div>
+                        <strong>{asset?.ticker || `Asset ${tx.asset_id}`} <span className={`tx-type ${String(tx.type).toLowerCase()}`}>{tx.type}</span></strong>
+                        <p>{Number(tx.quantity).toFixed(2)} @ {Number(tx.price).toFixed(2)} — {tx.timestamp}</p>
+                      </div>
+                      <div className="action-row">
+                        <button type="button" className="danger-btn" onClick={() => handleTransactionDelete(tx.transaction_id)}>
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  );
+                }) : (
+                  <div className="empty-state">No transactions yet for this portfolio. Add a BUY to start building a position.</div>
                 )}
               </div>
             </article>

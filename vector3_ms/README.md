@@ -558,6 +558,17 @@ Stores raw JSON from Yahoo Finance.
 
 ---
 
+Two processes. Backend on port 8000, frontend (Vite/React) on port 3000, proxying /api to the backend.
+1. Backend (from portfolio_manager/):
+venv\Scripts\activate
+uvicorn app.main:app --reload
+FastAPI runs at http://localhost:8000 (/docs, /scalar).
+2. Frontend (from portfolio_manager/ui/):
+npm install
+npm run dev
+UI runs at http://localhost:3000, and /api/* calls get forwarded to the backend on 8000.
+Note: this requires MySQL running and .env configured first.
+
 ## License
 
 This project is licensed under the MIT License.

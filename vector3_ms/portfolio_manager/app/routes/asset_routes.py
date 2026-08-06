@@ -3,7 +3,7 @@ from app.services.asset_service import (
     upsert_asset,
     list_assets,
     get_asset,
-    delete_asset,
+    delete_asset
 )
 
 router = APIRouter(prefix="/assets", tags=["Assets"])
@@ -23,4 +23,3 @@ def update_asset_route(ticker: str, data: dict):
 @router.delete("/{ticker}")
 def remove_asset(ticker: str):
     return delete_asset(ticker)
-

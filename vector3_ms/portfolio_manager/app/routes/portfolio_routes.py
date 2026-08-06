@@ -3,7 +3,7 @@ from app.services.portfolio_service import (
     create_portfolio,
     list_portfolios,
     update_portfolio,
-    delete_portfolio,
+    delete_portfolio
 )
 
 router = APIRouter(prefix="/portfolios", tags=["Portfolios"])
