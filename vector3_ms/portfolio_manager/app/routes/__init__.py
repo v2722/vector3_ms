@@ -4,6 +4,7 @@ from . import asset_transaction_routes
 from . import asset_type_routes
 from . import performance_routes
 from . import portfolio_routes
+from . import user_routes
 from . import price_routes
 from . import transaction_routes
 from . import csv_routes
@@ -20,6 +21,7 @@ __all__ = [
     "asset_type_routes",
     "performance_routes",
     "portfolio_routes",
+    "user_routes",
     "price_routes",
     "transaction_routes",
     "csv_routes",

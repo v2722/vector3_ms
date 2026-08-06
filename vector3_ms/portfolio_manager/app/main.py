@@ -7,6 +7,7 @@ from app.routes import (
     scalar_ui,
     asset_routes,
     portfolio_routes,
+    user_routes,
     price_routes,
     transaction_routes,
     auth_routes,
@@ -15,7 +16,8 @@ from app.routes import (
     recommender_routes,
     risk_routes,
     optimization_routes,
-    realtime_routes
+    realtime_routes,
+    chat_routes
 )
 
 app = FastAPI(
@@ -35,6 +37,7 @@ app.add_middleware(
 # Register routes
 app.include_router(auth_routes.router)
 app.include_router(portfolio_routes.router)
+app.include_router(user_routes.router)
 app.include_router(asset_routes.router)
 app.include_router(price_routes.router)
 app.include_router(transaction_routes.router)
@@ -47,6 +50,7 @@ app.include_router(recommender_routes.router)
 app.include_router(risk_routes.router)
 app.include_router(optimization_routes.router)
 app.include_router(realtime_routes.router)
+app.include_router(chat_routes.router)
 app.include_router(scalar_ui.router)
 
 @app.get("/")

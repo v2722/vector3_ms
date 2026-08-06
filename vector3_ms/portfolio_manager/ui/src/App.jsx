@@ -7,6 +7,9 @@ ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, ArcEleme
 
 const API = '/api';
 
+const AUTH_KEY = 'portfolio_pulse_token';
+const USER_KEY = 'portfolio_pulse_user';
+
 const fallbackPriceSeries = [
   { date: '2024-01-01', close: 182.3 },
   { date: '2024-02-01', close: 191.8 },
@@ -29,7 +32,7 @@ const navItems = [
   { key: 'compare', label: 'Compare' },
   { key: 'recommendations', label: 'Recommendations' },
   { key: 'assets', label: 'Assets' },
-  { key: 'manage', label: 'Manage' }
+  { key: 'manage', label: 'Portfolios' }
 ];
 
 const fallbackHeatmap = {
@@ -45,8 +48,21 @@ const fallbackHeatmap = {
 };
 
 function App() {
+  const [token, setToken] = useState(() => localStorage.getItem(AUTH_KEY) || '');
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem(USER_KEY) || 'null');
+    } catch {
+      return null;
+    }
+  });
+  const [authMode, setAuthMode] = useState('login');
+  const [authForm, setAuthForm] = useState({ username: '', password: '', email: '' });
+  const [authError, setAuthError] = useState('');
+  const [authSubmitting, setAuthSubmitting] = useState(false);
   const [portfolios, setPortfolios] = useState([]);
   const [assets, setAssets] = useState([]);
+  const [users, setUsers] = useState([]);
   const [selectedPortfolio, setSelectedPortfolio] = useState('');
   const [priceSeries, setPriceSeries] = useState(fallbackPriceSeries);
   const [recommendations, setRecommendations] = useState(fallbackRecommendations);
@@ -57,25 +73,34 @@ function App() {
   const [submitting, setSubmitting] = useState(false);
   const [activeView, setActiveView] = useState('overview');
   const [theme, setTheme] = useState('dark');
-  const [portfolioForm, setPortfolioForm] = useState({ name: '', description: '' });
+  const [portfolioForm, setPortfolioForm] = useState({ name: '', description: '', user_id: '' });
   const [editingPortfolioId, setEditingPortfolioId] = useState(null);
+  const [userForm, setUserForm] = useState({ name: '' });
   const [assetForm, setAssetForm] = useState({ ticker: '', name: '', exchange: '', sector: '', industry: '' });
   const [editingAssetTicker, setEditingAssetTicker] = useState('');
   const [compareA, setCompareA] = useState('');
   const [compareB, setCompareB] = useState('');
   const [heatmapData, setHeatmapData] = useState(fallbackHeatmap);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState([
+    { role: 'bot', text: 'Hi! I can answer questions about your portfolios, assets, risk, recommendations, transactions, and performance. Try asking "What are my holdings?"' }
+  ]);
+  const [chatInput, setChatInput] = useState('');
+  const [chatSending, setChatSending] = useState(false);
 
   const loadData = async (showLoading = false) => {
     if (showLoading) setLoading(true);
     try {
-      const [portfolioRes, assetRes] = await Promise.all([
+      const [portfolioRes, assetRes, userRes] = await Promise.all([
         axios.get(`${API}/portfolios/`),
-        axios.get(`${API}/assets/`)
+        axios.get(`${API}/assets/`),
+        axios.get(`${API}/users/`)
       ]);
 
       const portfolioData = portfolioRes.data || [];
       setPortfolios(portfolioData);
       setAssets(assetRes.data || []);
+      setUsers(userRes.data || []);
 
       if (portfolioData.length) {
         const isCurrentSelectionValid = portfolioData.some((portfolio) => String(portfolio.portfolio_id) === selectedPortfolio);
@@ -91,6 +116,72 @@ function App() {
     } finally {
       if (showLoading) setLoading(false);
     }
+  };
+
+  const handleAuthSubmit = async (event) => {
+    event.preventDefault();
+    const username = authForm.username.trim();
+    const password = authForm.password;
+    if (!username || !password) {
+      setAuthError('Please enter a username and password.');
+      return;
+    }
+    if (authMode === 'register' && !authForm.email.trim()) {
+      setAuthError('Please enter an email address to register.');
+      return;
+    }
+
+    setAuthSubmitting(true);
+    setAuthError('');
+    try {
+      if (authMode === 'login') {
+        const response = await axios.post(`${API}/auth/login`, { username, password });
+        const { access_token: accessToken, user_id: userId } = response.data || {};
+        localStorage.setItem(AUTH_KEY, accessToken);
+        localStorage.setItem(USER_KEY, JSON.stringify({ user_id: userId, username }));
+        setToken(accessToken);
+        setCurrentUser({ user_id: userId, username });
+      } else {
+        const response = await axios.post(`${API}/auth/register`, {
+          username,
+          password,
+          email: authForm.email.trim()
+        });
+        if (response.data?.error) {
+          setAuthError(response.data.error);
+          return;
+        }
+        const loginResponse = await axios.post(`${API}/auth/login`, { username, password });
+        const { access_token: accessToken, user_id: userId } = loginResponse.data || {};
+        localStorage.setItem(AUTH_KEY, accessToken);
+        localStorage.setItem(USER_KEY, JSON.stringify({ user_id: userId, username }));
+        setToken(accessToken);
+        setCurrentUser({ user_id: userId, username });
+      }
+    } catch (err) {
+      console.error(err);
+      const message = err.response?.data?.detail || err.response?.data?.error || err.message;
+      setAuthError(typeof message === 'string' ? message : 'Authentication failed. Please try again.');
+    } finally {
+      setAuthSubmitting(false);
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem(AUTH_KEY);
+    localStorage.removeItem(USER_KEY);
+    setToken('');
+    setCurrentUser(null);
+    setAuthMode('login');
+    setAuthForm({ username: '', password: '', email: '' });
+    setPortfolios([]);
+    setActiveView('overview');
+  };
+
+  const switchAuthMode = (mode) => {
+    setAuthMode(mode);
+    setAuthError('');
+    setAuthForm({ username: '', password: '', email: '' });
   };
 
   const loadInsights = async (portfolioId) => {
@@ -163,8 +254,10 @@ function App() {
   };
 
   useEffect(() => {
-    loadData(true);
-  }, []);
+    if (token) {
+      loadData(true);
+    }
+  }, [token]);
 
   useEffect(() => {
     if (!selectedPortfolio) return;
@@ -200,7 +293,8 @@ function App() {
     try {
       const payload = {
         name: portfolioForm.name.trim(),
-        description: portfolioForm.description.trim() || null
+        description: portfolioForm.description.trim() || null,
+        user_id: portfolioForm.user_id ? Number(portfolioForm.user_id) : null
       };
 
       if (editingPortfolioId) {
@@ -213,7 +307,7 @@ function App() {
         }
       }
 
-      setPortfolioForm({ name: '', description: '' });
+      setPortfolioForm({ name: '', description: '', user_id: '' });
       setEditingPortfolioId(null);
       setError('');
       await loadData();
@@ -242,8 +336,30 @@ function App() {
 
   const handlePortfolioEdit = (portfolio) => {
     setEditingPortfolioId(portfolio.portfolio_id);
-    setPortfolioForm({ name: portfolio.name, description: portfolio.description || '' });
+    setPortfolioForm({
+      name: portfolio.name,
+      description: portfolio.description || '',
+      user_id: portfolio.user_id ? String(portfolio.user_id) : ''
+    });
     setActiveView('manage');
+  };
+
+  const handleUserSubmit = async (event) => {
+    event.preventDefault();
+    if (!userForm.name.trim()) return;
+
+    setSubmitting(true);
+    try {
+      await axios.post(`${API}/users/`, { name: userForm.name.trim() });
+      setUserForm({ name: '' });
+      setError('');
+      await loadData();
+    } catch (err) {
+      console.error(err);
+      setError('The user could not be added.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleAssetSubmit = async (event) => {
@@ -296,6 +412,29 @@ function App() {
     } catch (err) {
       console.error(err);
       setError('The asset could not be deleted.');
+    }
+  };
+
+  const handleChatSubmit = async (event) => {
+    event.preventDefault();
+    const text = chatInput.trim();
+    if (!text || chatSending) return;
+
+    setChatMessages((current) => [...current, { role: 'user', text }]);
+    setChatInput('');
+    setChatSending(true);
+    try {
+      const response = await axios.post(`${API}/chat/`, {
+        message: text,
+        portfolio_id: selectedPortfolio ? Number(selectedPortfolio) : null
+      });
+      const reply = response.data?.reply || 'Sorry, I could not find an answer.';
+      setChatMessages((current) => [...current, { role: 'bot', text: reply }]);
+    } catch (err) {
+      console.error(err);
+      setChatMessages((current) => [...current, { role: 'bot', text: 'The chat service is temporarily unavailable.' }]);
+    } finally {
+      setChatSending(false);
     }
   };
 
@@ -362,6 +501,87 @@ function App() {
     { label: 'Portfolio size', value: `${assets.length || 6} positions` }
   ];
 
+  if (!token) {
+    return (
+      <div className="auth-shell">
+        <div className="auth-backdrop" />
+        <div className="auth-panel">
+          <div className="auth-brand">
+            <div className="brand-icon">AW</div>
+            <h2>Portfolio Pulse</h2>
+            <p>AI-powered portfolio OS</p>
+          </div>
+
+          <div className="auth-tabs">
+            <button
+              type="button"
+              className={`auth-tab ${authMode === 'login' ? 'active' : ''}`}
+              onClick={() => switchAuthMode('login')}
+            >
+              Login
+            </button>
+            <button
+              type="button"
+              className={`auth-tab ${authMode === 'register' ? 'active' : ''}`}
+              onClick={() => switchAuthMode('register')}
+            >
+              Register
+            </button>
+          </div>
+
+          <form className="auth-form" onSubmit={handleAuthSubmit}>
+            {authMode === 'register' && (
+              <label>
+                Email
+                <input
+                  type="email"
+                  value={authForm.email}
+                  onChange={(event) => setAuthForm({ ...authForm, email: event.target.value })}
+                  placeholder="you@example.com"
+                  autoComplete="email"
+                />
+              </label>
+            )}
+            <label>
+              Username
+              <input
+                type="text"
+                value={authForm.username}
+                onChange={(event) => setAuthForm({ ...authForm, username: event.target.value })}
+                placeholder="alice"
+                autoComplete="username"
+                required
+              />
+            </label>
+            <label>
+              Password
+              <input
+                type="password"
+                value={authForm.password}
+                onChange={(event) => setAuthForm({ ...authForm, password: event.target.value })}
+                placeholder="••••••••"
+                autoComplete={authMode === 'login' ? 'current-password' : 'new-password'}
+                required
+              />
+            </label>
+
+            {authError ? <div className="auth-error">{authError}</div> : null}
+
+            <button className="primary-btn auth-submit" type="submit" disabled={authSubmitting}>
+              {authSubmitting ? 'Please wait…' : authMode === 'login' ? 'Login' : 'Create account'}
+            </button>
+          </form>
+
+          <p className="auth-foot">
+            {authMode === 'login'
+              ? 'New here? Switch to Register to create an account.'
+              : 'Already have an account? Switch to Login.'}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (loading) {
     return <div className="loading">Loading Portfolio Pulse…</div>;
   }
@@ -395,9 +615,10 @@ function App() {
         </button>
 
         <div className="sidebar-card">
-          <p className="eyebrow">Live sync</p>
-          <h3>Connected</h3>
+          <p className="eyebrow">Signed in</p>
+          <h3>{currentUser?.username || 'User'}</h3>
           <span>FastAPI • MySQL • ML engine</span>
+          <button className="logout-btn" onClick={handleLogout} type="button">Logout</button>
         </div>
       </aside>
 
@@ -418,24 +639,26 @@ function App() {
 
         {error ? <div className="notice">{error}</div> : null}
 
-        <section className="metrics-grid">
-          <article className="metric-card">
-            <p className="metric-label">Selected portfolio</p>
-            <h3>{selectedPortfolioData?.name || 'No portfolio selected'}</h3>
-          </article>
-          <article className="metric-card">
-            <p className="metric-label">Tracked assets</p>
-            <h3>{assets.length || 6}</h3>
-          </article>
-          <article className="metric-card">
-            <p className="metric-label">Sharpe ratio</p>
-            <h3>{riskSummary?.sharpe_ratio ?? '1.24'}</h3>
-          </article>
-          <article className="metric-card">
-            <p className="metric-label">Risk profile</p>
-            <h3>{riskSummary?.risk_level ?? 'Balanced'}</h3>
-          </article>
-        </section>
+        {activeView === 'overview' && (
+          <section className="metrics-grid">
+            <article className="metric-card">
+              <p className="metric-label">Selected portfolio</p>
+              <h3>{selectedPortfolioData?.name || 'No portfolio selected'}</h3>
+            </article>
+            <article className="metric-card">
+              <p className="metric-label">Tracked assets</p>
+              <h3>{assets.length || 6}</h3>
+            </article>
+            <article className="metric-card">
+              <p className="metric-label">Sharpe ratio</p>
+              <h3>{riskSummary?.sharpe_ratio ?? '1.24'}</h3>
+            </article>
+            <article className="metric-card">
+              <p className="metric-label">Risk profile</p>
+              <h3>{riskSummary?.risk_level ?? 'Balanced'}</h3>
+            </article>
+          </section>
+        )}
 
         {activeView === 'overview' && (
           <>
@@ -459,7 +682,7 @@ function App() {
                 <div className="portfolio-summary">
                   <div>
                     <h4>{selectedPortfolioData?.description || 'A focused portfolio view with actionable insights.'}</h4>
-                    <p>Every section below is linked to the live backend, making the dashboard fully data-aware and ready for real portfolio operations.</p>
+                    <p>User name: {selectedPortfolioData?.user_name || '—'} · Every section below is linked to the live backend, making the dashboard fully data-aware and ready for real portfolio operations.</p>
                   </div>
                   <div className="mini-stats">
                     <div><span>Portfolios</span><strong>{portfolios.length}</strong></div>
@@ -572,6 +795,9 @@ function App() {
                     <span>{asset.ticker}</span>
                     <span>{asset.name || 'Tracked asset'}</span>
                     <span>{asset.sector || 'Core'}</span>
+                    <span className="row-actions">
+                      <button type="button" className="icon-btn danger-icon" onClick={() => handleAssetDelete(asset.ticker)} title={`Remove ${asset.ticker}`}>✕</button>
+                    </span>
                   </div>
                 )) : (
                   <div className="empty-state">No holdings available yet.</div>
@@ -781,6 +1007,18 @@ function App() {
 
               <form className="manager-form" onSubmit={handlePortfolioSubmit}>
                 <label>
+                  User name
+                  <select
+                    value={portfolioForm.user_id}
+                    onChange={(event) => setPortfolioForm({ ...portfolioForm, user_id: event.target.value })}
+                  >
+                    <option value="">Select user</option>
+                    {users.map((user) => (
+                      <option key={user.user_id} value={user.user_id}>{user.name}</option>
+                    ))}
+                  </select>
+                </label>
+                <label>
                   Portfolio name
                   <input
                     value={portfolioForm.name}
@@ -803,12 +1041,27 @@ function App() {
                 </button>
               </form>
 
+              <form className="manager-form manager-form-inline" onSubmit={handleUserSubmit}>
+                <label>
+                  New user name
+                  <input
+                    value={userForm.name}
+                    onChange={(event) => setUserForm({ name: event.target.value })}
+                    placeholder="e.g. Alice Johnson"
+                  />
+                </label>
+                <button className="secondary-btn" type="submit" disabled={submitting}>
+                  {submitting ? 'Saving…' : 'Add user'}
+                </button>
+              </form>
+
               <div className="list-stack">
                 {portfolios.length ? portfolios.map((portfolio) => (
                   <div className="list-item" key={portfolio.portfolio_id}>
                     <div>
                       <strong>{portfolio.name}</strong>
                       <p>{portfolio.description || 'No description provided yet.'}</p>
+                      <p className="list-sub">User: {portfolio.user_name || '—'}</p>
                     </div>
                     <div className="action-row">
                       <button type="button" className="secondary-btn" onClick={() => handlePortfolioEdit(portfolio)}>
@@ -827,6 +1080,44 @@ function App() {
           </section>
         )}
       </main>
+
+      {chatOpen && (
+        <div className="chat-panel">
+          <div className="chat-head">
+            <div>
+              <strong>Portfolio Assistant</strong>
+              <span>Ask me about your portfolio</span>
+            </div>
+            <button type="button" className="chat-close" onClick={() => setChatOpen(false)} aria-label="Close chat">✕</button>
+          </div>
+          <div className="chat-body">
+            {chatMessages.map((message, index) => (
+              <div className={`chat-msg ${message.role}`} key={index}>
+                {message.text}
+              </div>
+            ))}
+            {chatSending ? <div className="chat-msg bot typing">Thinking…</div> : null}
+          </div>
+          <form className="chat-form" onSubmit={handleChatSubmit}>
+            <input
+              value={chatInput}
+              onChange={(event) => setChatInput(event.target.value)}
+              placeholder="Ask about holdings, risk, recommendations…"
+              autoFocus
+            />
+            <button type="submit" className="chat-send" disabled={chatSending}>Send</button>
+          </form>
+        </div>
+      )}
+
+      <button
+        type="button"
+        className="chat-fab"
+        onClick={() => setChatOpen((open) => !open)}
+        aria-label="Toggle chat"
+      >
+        💬
+      </button>
     </div>
   );
 }

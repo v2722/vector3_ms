@@ -7,13 +7,30 @@ CREATE DATABASE IF NOT EXISTS portfolio_manager;
 USE portfolio_manager;
 
 -- ============================================================
+-- USER TABLE (NEW - one user can own multiple portfolios)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS user (
+    user_id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    username VARCHAR(100) NULL UNIQUE,
+    password VARCHAR(255) NULL,
+    email VARCHAR(255) NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ============================================================
 -- PORTFOLIO TABLE
 -- ============================================================
 CREATE TABLE IF NOT EXISTS portfolio (
     portfolio_id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT,
     name VARCHAR(100) NOT NULL,
     description TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (user_id)
+        REFERENCES user(user_id)
+        ON DELETE SET NULL
 );
 
 -- ============================================================

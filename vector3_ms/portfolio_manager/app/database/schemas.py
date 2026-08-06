@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 
 class PortfolioCreate(BaseModel):
+    user_id: int | None = None
     name: str
     description: str | None = None
 

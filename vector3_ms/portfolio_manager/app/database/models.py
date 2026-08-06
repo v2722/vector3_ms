@@ -1,6 +1,14 @@
+class User:
+    def __init__(self, user_id, name, created_at):
+        self.user_id = user_id
+        self.name = name
+        self.created_at = created_at
+
+
 class Portfolio:
-    def __init__(self, portfolio_id, name, description, created_at):
+    def __init__(self, portfolio_id, user_id, name, description, created_at):
         self.portfolio_id = portfolio_id
+        self.user_id = user_id
         self.name = name
         self.description = description
         self.created_at = created_at
